@@ -4,7 +4,7 @@ SQLAlchemy ORM models for predictions and jobs.
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Float, Boolean, DateTime, Integer, JSON, Text
+from sqlalchemy import Column, String, Float, Boolean, DateTime, Integer, JSON, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -52,6 +52,10 @@ class Prediction(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("job_id", "building_id", name="uq_predictions_job_building"),
     )
 
     def to_dict(self):

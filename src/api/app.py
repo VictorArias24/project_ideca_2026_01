@@ -533,8 +533,10 @@ async def import_job_results(job_id: str, session: AsyncSession = Depends(get_db
     """Import predictions from a completed Azure ML batch job.
 
     Downloads predictions.csv from AML output, parses rows into Prediction
-    records, and persists them to SQLite.
+    records, and persists them to SQLite. Idempotent: clears existing
+    predictions for this job before re-importing.
     """
+    from sqlalchemy.exc import IntegrityError
     from src.infrastructure.aml_batch import get_aml_batch_client
     from src.persistence.repository import JobRepository, PredictionRepository
     from src.persistence.models import Prediction
@@ -550,85 +552,110 @@ async def import_job_results(job_id: str, session: AsyncSession = Depends(get_db
     if csv_content is None:
         raise HTTPException(status_code=400, detail="Job output not available. Job may not be completed.")
 
+    pred_repo = PredictionRepository(session)
+
+    # Idempotency: clear any prior predictions for this job so a re-import
+    # does not duplicate rows. The legacy csv.DictReader left 199 ghost rows
+    # for aml-20260615-085139 from earlier failed runs.
+    deleted = await pred_repo.delete_by_job(job_id)
+    if deleted:
+        logger.info(f"Cleared {deleted} existing predictions for job {job_id} before re-import")
+
     # Parse CSV — batch scoring output is whitespace-separated with NO header
     # Columns: building_id label confidence images_used status
     imported = 0
     failed = 0
     review_count = 0
+    staged_preds: list[Prediction] = []
 
-    pred_repo = PredictionRepository(session)
+    try:
+        for raw_line in csv_content.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
 
-    for raw_line in csv_content.splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
+            parts = line.split()
+            if len(parts) < 5:
+                logger.warning(f"Skipping malformed CSV line: {line[:80]}")
+                failed += 1
+                continue
 
-        parts = line.split()
-        if len(parts) < 5:
-            logger.warning(f"Skipping malformed CSV line: {line[:80]}")
-            failed += 1
-            continue
+            building_id = parts[0]
+            label = parts[1]
+            try:
+                confidence = float(parts[2])
+            except (ValueError, TypeError):
+                confidence = 0
+            try:
+                images_used = int(parts[3])
+            except (ValueError, TypeError):
+                images_used = 0
+            status = parts[4] if len(parts) > 4 else "unknown"
 
-        building_id = parts[0]
-        label = parts[1]
-        try:
-            confidence = float(parts[2])
-        except (ValueError, TypeError):
-            confidence = 0
-        try:
-            images_used = int(parts[3])
-        except (ValueError, TypeError):
-            images_used = 0
-        status = parts[4] if len(parts) > 4 else "unknown"
-
-        if status != "success" or label in ("ERROR", "PARSE_ERROR"):
-            failed += 1
-            pred = Prediction(
-                building_id=building_id,
-                job_id=job_id,
-                model_id="Qwen2.5-VL-32B-Instruct",
-                perfil_modelo="batch-aml",
-                prompt_version="p004-batch",
-                schema_version="1.0.0",
-                taxonomy_version="1.0.0",
-                image_uris=[],
-                classification={"label": label, "confidence": confidence, "status": status},
-                primary_label=None,
-                max_confidence=None,
-                requires_review=True,
-                review_status="pending",
-                latency_ms=0,
-            )
-        else:
-            imported += 1
-            from src.application.review_service import ReviewService
-            parsed_minimal = {
-                "clases": [{"label": label, "confidence": confidence, "is_primary": True}],
-            }
-            needs_review, _ = ReviewService.apply_routing_rules(parsed_minimal)
-            if needs_review:
-                review_count += 1
-
-            pred = Prediction(
-                building_id=building_id,
-                job_id=job_id,
-                model_id="Qwen2.5-VL-32B-Instruct",
-                perfil_modelo="batch-aml",
-                prompt_version="p004-batch",
-                schema_version="1.0.0",
-                taxonomy_version="1.0.0",
-                image_uris=[],
-                classification={
+            if status != "success" or label in ("ERROR", "PARSE_ERROR"):
+                failed += 1
+                pred = Prediction(
+                    building_id=building_id,
+                    job_id=job_id,
+                    model_id="Qwen2.5-VL-32B-Instruct",
+                    perfil_modelo="batch-aml",
+                    prompt_version="p004-batch",
+                    schema_version="1.0.0",
+                    taxonomy_version="1.0.0",
+                    image_uris=[],
+                    classification={"label": label, "confidence": confidence, "status": status},
+                    primary_label=None,
+                    max_confidence=None,
+                    requires_review=True,
+                    review_status="pending",
+                    latency_ms=0,
+                )
+            else:
+                imported += 1
+                from src.application.review_service import ReviewService
+                parsed_minimal = {
                     "clases": [{"label": label, "confidence": confidence, "is_primary": True}],
-                },
-                primary_label=label,
-                max_confidence=confidence,
-                requires_review=needs_review,
-                review_status="pending" if needs_review else "accepted",
-                latency_ms=0,
-            )
+                }
+                needs_review, _ = ReviewService.apply_routing_rules(parsed_minimal)
+                if needs_review:
+                    review_count += 1
 
-        await pred_repo.save(pred)
+                pred = Prediction(
+                    building_id=building_id,
+                    job_id=job_id,
+                    model_id="Qwen2.5-VL-32B-Instruct",
+                    perfil_modelo="batch-aml",
+                    prompt_version="p004-batch",
+                    schema_version="1.0.0",
+                    taxonomy_version="1.0.0",
+                    image_uris=[],
+                    classification={
+                        "clases": [{"label": label, "confidence": confidence, "is_primary": True}],
+                    },
+                    primary_label=label,
+                    max_confidence=confidence,
+                    requires_review=needs_review,
+                    review_status="pending" if needs_review else "accepted",
+                    latency_ms=0,
+                )
+
+            pred_repo.session.add(pred)
+            staged_preds.append(pred)
+
+        # Single commit for the whole batch — atomic, no partial imports.
+        await pred_repo.session.commit()
+
+    except IntegrityError as e:
+        await pred_repo.session.rollback()
+        logger.error(f"Integrity error during import of job {job_id}: {e}")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Duplicate (job_id, building_id) detected. Use /jobs/{job_id}/purge to clear, then retry.",
+        )
+    except Exception as e:
+        await pred_repo.session.rollback()
+        logger.error(f"Import failed for job {job_id}: {e}")
+        raise
 
     # Update job stats
     job.completed_buildings = imported
@@ -645,6 +672,42 @@ async def import_job_results(job_id: str, session: AsyncSession = Depends(get_db
         "failed": failed,
         "review_count": review_count,
         "status": "completed",
+    })
+
+
+@app.post("/jobs/{job_id}/purge")
+async def purge_job_predictions(job_id: str, session: AsyncSession = Depends(get_db_session)):
+    """Delete all predictions for a job. Does NOT re-import from AML.
+
+    Useful when:
+    - Predictions CSV is corrupt and re-import will not help
+    - User wants to clear the DB without touching Azure ML
+    - Cleaning up ghost rows from a botched prior import
+
+    Resets job.completed_buildings/failed_buildings/review_count to 0
+    and sets job.status to "completed" (since AML itself is still done).
+    """
+    from src.persistence.repository import JobRepository, PredictionRepository
+
+    job_repo = JobRepository(session)
+    job = await job_repo.get_by_id(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    pred_repo = PredictionRepository(session)
+    deleted = await pred_repo.delete_by_job(job_id)
+
+    job.completed_buildings = 0
+    job.failed_buildings = 0
+    job.review_count = 0
+    await job_repo.save(job)
+
+    logger.info(f"Purged {deleted} predictions for job {job_id}")
+    return JSONResponse(content={
+        "job_id": job_id,
+        "deleted": deleted,
+        "status": "completed",
+        "message": f"Cleared {deleted} predictions. Use /jobs/{job_id}/import to re-import from AML output.",
     })
 
 

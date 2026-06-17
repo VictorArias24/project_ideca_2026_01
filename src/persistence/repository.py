@@ -50,6 +50,19 @@ class PredictionRepository:
         )
         return list(result.scalars().all())
 
+    async def delete_by_job(self, job_id: str) -> int:
+        """Delete all predictions for a job. Returns count deleted.
+
+        Used by /jobs/{id}/import (to make re-imports idempotent) and
+        /jobs/{id}/purge (manual cleanup).
+        """
+        from sqlalchemy import delete
+        result = await self.session.execute(
+            delete(Prediction).where(Prediction.job_id == job_id)
+        )
+        await self.session.commit()
+        return result.rowcount
+
     async def count_by_job(self, job_id: str) -> int:
         result = await self.session.execute(
             select(func.count()).where(Prediction.job_id == job_id)
