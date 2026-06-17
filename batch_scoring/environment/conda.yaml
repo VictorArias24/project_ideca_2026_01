@@ -1,0 +1,12 @@
+name: batch-vlm-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - openai>=1.0.0
+    - pandas>=2.0.0
+    - Pillow>=10.0.0
+    - azureml-core
+    - azureml-dataset-runtime[fuse]
