@@ -348,19 +348,25 @@ FULL_USER_PROMPT = (
 
 # ── IMAGE ENCODING ──────────────────────────────────────────────────────
 
-MAX_IMAGE_SIZE = 400  # pixels on longest side — keeps multi-image under 10K tokens
+# Set to 0 to keep native resolution (default). Set BATCH_IMAGE_MAX_DIM=400 to
+# resize to 400px (legacy behavior, useful when token budget is tight).
+MAX_IMAGE_SIZE = int(os.getenv("BATCH_IMAGE_MAX_DIM", "0"))
 
 
 def _encode_image(image_path: Path) -> str:
-    """Encode an image to a data: URL, resizing and converting to JPEG if needed."""
+    """Encode an image to a data: URL, resizing and converting to JPEG if needed.
+
+    Resize is skipped when MAX_IMAGE_SIZE <= 0 (default). Set the
+    BATCH_IMAGE_MAX_DIM environment variable to opt back into 400px resize.
+    """
     ext = image_path.suffix.lower()
     mime = {".jpg": "jpeg", ".jpeg": "jpeg", ".png": "png", ".webp": "webp"}.get(ext, "jpeg")
 
     img = Image.open(image_path)
     w, h = img.size
 
-    # Resize if larger than max
-    if max(w, h) > MAX_IMAGE_SIZE:
+    # Resize if MAX_IMAGE_SIZE > 0 and image is larger
+    if MAX_IMAGE_SIZE > 0 and max(w, h) > MAX_IMAGE_SIZE:
         factor = MAX_IMAGE_SIZE / max(w, h)
         img = img.resize((int(w * factor), int(h * factor)), Image.LANCZOS)
 

@@ -59,7 +59,7 @@ class ClassifyService:
             Prediction ORM record. Caller persists it via PredictionRepository.
         """
 
-        data_urls = [image_to_data_url(u) for u in image_urls]
+        data_urls = [image_to_data_url(u, max_dim=0) for u in image_urls]
 
         try:
             vlm_response = await asyncio.to_thread(
