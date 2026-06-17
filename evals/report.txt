@@ -1,0 +1,81 @@
+==============================================================
+PHASE 05 — BASELINE EVALUATION REPORT
+==============================================================
+Timestamp:   2026-06-15T03:10:59Z
+Prompt:      p003
+Model:       Qwen2.5-VL-32B-Instruct
+Golden set:  55 images, 8 classes (expert docx bootstrap)
+Missing:     COMERCIAL_3, RURAL_1 (no expert images)
+
+--- METRICS ---
+Accuracy:        85.5% (47/55)
+Macro F1:        0.661
+Weighted F1:     0.822
+Parse success:   100% (0 failures)
+API errors:      0
+Avg latency:     42.7s
+Total latency:   2349s (~39 min)
+
+--- PER-CLASS METRICS ---
+Class                               Prec     Rec      F1   Sup   Gate
+----------------------------------------------------------------------
+COMERCIAL_1                       0.800  1.000  0.889    4  ✓ 0.75
+COMERCIAL_2                       0.667  0.667  0.667    3  ✓ 0.60
+DOTACIONAL_1                      0.900  1.000  0.947    9  ✓ 0.75
+DOTACIONAL_2                      0.000  0.000  0.000    1  -   -
+MIXTO_1                           0.800  1.000  0.889    4  ✓ 0.75
+MIXTO_2                           0.000  0.000  0.000    4  -   -
+MOLES_1                           1.000  1.000  1.000    6  ✓ 0.75
+RESIDENCIAL_1                     0.880  0.917  0.898   24  ✓ 0.85
+
+--- CONFUSION MATRIX ---
+                                  COMERC  COMERC  DOTACI  DOTACI  MIXTO_  MIXTO_  MOLES_  RESIDE  RURAL_
+                     COMERCIAL_1       4       0       0       0       0       0       0       0       0
+                     COMERCIAL_2       1       2       0       0       0       0       0       0       0
+                    DOTACIONAL_1       0       0       9       0       0       0       0       0       0
+                    DOTACIONAL_2       0       0       1       0       0       0       0       0       0
+                         MIXTO_1       0       0       0       0       4       0       0       0       0
+                         MIXTO_2       0       0       0       0       1       0       0       3       0
+                         MOLES_1       0       0       0       0       0       0       6       0       0
+                   RESIDENCIAL_1       0       1       0       0       0       0       0      22       1
+                         RURAL_1       0       0       0       0       0       0       0       0       0
+
+--- GATE RESULTS ---
+Gate                       Threshold     Actual   Status
+----------------------------------------------------------
+accuracy                        0.80      0.855   ✓ PASS
+macro_f1                        0.60      0.661   ✓ PASS
+weighted_f1                     0.80      0.822   ✓ PASS
+parse_rate                      0.90      1.000   ✓ PASS
+recall_COMERCIAL_1             0.75      1.000   ✓ PASS
+recall_COMERCIAL_2             0.60      0.667   ✓ PASS
+recall_DOTACIONAL_1            0.75      1.000   ✓ PASS
+recall_MIXTO_1                 0.75      1.000   ✓ PASS
+recall_MOLES_1                 0.75      1.000   ✓ PASS
+recall_RESIDENCIAL_1           0.85      0.917   ✓ PASS
+
+--- ERRORS ---
+  golden-DOTACIONAL-001          true=DOTACIONAL_2              pred=DOTACIONAL_1              conf=0.85
+  golden-COMERCIAL-003           true=COMERCIAL_2               pred=COMERCIAL_1               conf=0.85
+  golden-MIXTO-001               true=MIXTO_2                   pred=RESIDENCIAL_1             conf=0.75
+  golden-MIXTO-002               true=MIXTO_2                   pred=MIXTO_1                   conf=0.75
+  golden-MIXTO-003               true=MIXTO_2                   pred=RESIDENCIAL_1             conf=0.75
+  golden-MIXTO-004               true=MIXTO_2                   pred=RESIDENCIAL_1             conf=0.85
+  golden-RESIDENCIAL-002         true=RESIDENCIAL_1             pred=RURAL_1                   conf=0.85
+  golden-RESIDENCIAL-016         true=RESIDENCIAL_1             pred=COMERCIAL_2               conf=0.85
+
+--- CLASS GAPS ---
+  COMERCIAL_3: Zero expert images. Cannot evaluate.
+  RURAL_1:     Zero expert images. Cannot evaluate.
+  DOTACIONAL_2: 1 image only. Classified as DOTACIONAL_1 (F1=0).
+  MIXTO_2:     4 images, 0 correct. Professional plaques invisible at 400px.
+                Routed to review in p004. Requires higher-res images.
+
+--- COST ---
+Endpoint hourly cost: ~$3.60/h
+Eval runtime: 0.65 hours
+Eval cost: ~$2.35
+
+==============================================================
+END OF REPORT
+==============================================================

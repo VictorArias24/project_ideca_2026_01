@@ -1,0 +1,53 @@
+# Eval Config: Metric gates and label categories for Phase 05 evaluation.
+#
+# Used by run_eval.py and report.py to check pass/fail thresholds.
+# Updated as taxonomy and targets evolve.
+
+eval_config_version: "1.0.0"
+
+# Minimum metric thresholds for baseline acceptance
+metric_gates:
+  accuracy: 0.80          # Overall accuracy
+  macro_f1: 0.60          # Unweighted average of per-class F1
+  weighted_f1: 0.80       # Support-weighted F1
+  parse_rate: 0.90        # Fraction of responses that parse successfully
+  max_latency_s: 120      # Max per-call latency (seconds)
+
+# Per-class minimum recall gates (null = no gate for that class)
+per_class_recall_gates:
+  RESIDENCIAL_1: 0.85
+  COMERCIAL_1: 0.75
+  COMERCIAL_2: 0.60
+  COMERCIAL_3: null        # No samples in golden set
+  DOTACIONAL_1: 0.75
+  DOTACIONAL_2: null        # Only 1 sample — insufficient
+  MOLES_1: 0.75
+  RURAL_1: null             # No samples in golden set
+  MIXTO_1: 0.75
+  MIXTO_2: null             # 0% recall — visual resolution limitation
+
+# Label categories for weighted metrics
+label_categories:
+  confirmed:
+    - RESIDENCIAL_1
+    - COMERCIAL_1
+    - COMERCIAL_2
+    - DOTACIONAL_1
+    - MIXTO_1
+    - MIXTO_2
+    - MOLES_1
+  suggested:
+    - COMERCIAL_3
+    - DOTACIONAL_2
+  missing:
+    - RURAL_1
+    - UNKNOWN_OR_INSUFFICIENT_EVIDENCE
+
+# Golden set sources
+golden_sets:
+  - path: "evals/golden_set.jsonl"
+    source: "Expert docx sections (Victor_Casos Modelo Usos x Fachadas.docx)"
+    image_count: 55
+    class_count: 8
+    missing_classes: [COMERCIAL_3, RURAL_1]
+    notes: "Bootstrap set. DOTACIONAL_2 has only 1 sample."
