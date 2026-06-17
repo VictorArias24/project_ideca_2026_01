@@ -1,0 +1,77 @@
+# Review Routing Rules
+# Defines the conditions that send a prediction to the human review queue.
+#
+# Version: 1.0.0
+# Taxonomy version: 1.0.0
+
+review_routing:
+  version: "1.0.0"
+  taxonomy_version: "1.0.0"
+
+  rules:
+    - name: low_confidence
+      condition: max_confidence < 0.65
+      action: route_to_review
+      reason: "top_class_confidence_below_threshold"
+      priority: 1
+      notes: >
+        Applied after classification. If the model's highest-confidence
+        class is below 0.65, the prediction is not reliable enough for
+        automatic acceptance.
+
+    - name: top2_margin
+      condition: top2_confidence_margin < 0.10
+      action: route_to_review
+      reason: "ambiguous_top_classes"
+      priority: 2
+      notes: >
+        When the top two predicted classes are too close in confidence
+        (margin < 0.10), the model is ambiguous. A human should decide.
+
+    - name: unknown_class
+      condition: primary_label == "UNKNOWN_OR_INSUFFICIENT_EVIDENCE"
+      action: route_to_review
+      reason: "model_cannot_determine"
+      priority: 3
+      notes: >
+        The model itself declared it cannot classify this building.
+        Route to human with recommendation to request more images.
+
+    - name: suggested_class
+      condition: primary_label in ["COMERCIAL_3", "DOTACIONAL_2", "MOLES_1"]
+      action: route_to_review
+      reason: "suggested_class_requires_validation"
+      priority: 4
+      notes: >
+        Classes marked as "sugerido" (suggested) in the source taxonomy.
+        These have not been fully validated by stakeholders and must be
+        reviewed before acceptance. Even high-confidence predictions for
+        these classes are routed to review.
+
+    - name: image_quality
+      condition: has_quality_flag
+      action: flag_not_route
+      reason: "poor_image_quality"
+      priority: 5
+      notes: >
+        Image quality issues (occlusion, blur, night, missing facade)
+        are flagged on the prediction but do NOT automatically route to
+        review. The prediction stands but carries a quality caveat.
+        Reviewers can still manually route low-quality predictions.
+
+    - name: parse_failure
+      condition: output_parse_failed
+      action: route_to_review
+      reason: "invalid_json_or_schema_violation"
+      priority: 6
+      notes: >
+        The model output could not be parsed as valid JSON or violated
+        the output schema. This is a technical failure that requires
+        human intervention (or automatic retry with different parameters).
+
+  # Priority determines the order of rule application.
+  # Only the first matching rule per class is applied (no stacking).
+  # Confidence thresholds are defaults; they can be overridden per job.
+
+  default_confidence_threshold: 0.65
+  default_top2_margin_threshold: 0.10

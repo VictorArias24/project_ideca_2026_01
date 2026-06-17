@@ -1,0 +1,124 @@
+# Building-use taxonomy template derived from the 10-use compendium.
+
+taxonomy_version: "0.1.0"
+taxonomy_name: "bogota_building_use_10_class_template"
+source_file: "Victor Compendio de 10 Usos para el Modelo.xlsx"
+
+labels:
+  - id: "RESIDENCIAL_1"
+    source_group: 1
+    source_name: "RESIDENCIALES"
+    detail: "vivienda"
+    description: "Construcciones destinadas a vivienda: casas, edificios PHs, condominios."
+    source_status: "confirmado"
+    visual_cues:
+      - "residential facade"
+      - "apartment balconies or windows"
+      - "single-family or multifamily housing pattern"
+
+  - id: "COMERCIAL_1"
+    source_group: 2
+    source_name: "COMERCIALES 1"
+    detail: "locales - compra venta"
+    description: "Almacenamiento, distribucion o intercambio de productos, bienes o servicios con interes comercial."
+    source_status: "confirmado"
+    visual_cues:
+      - "storefront"
+      - "retail signage"
+      - "public-facing commercial access"
+
+  - id: "COMERCIAL_2"
+    source_group: 3
+    source_name: "COMERCIALES 2"
+    detail: "oficinas"
+    description: "Edificaciones donde se desarrollan actividades destinadas a la prestacion de servicios."
+    source_status: "confirmado"
+    visual_cues:
+      - "office building facade"
+      - "corporate or professional-services signage"
+      - "non-retail service access"
+
+  - id: "COMERCIAL_3"
+    source_group: 4
+    source_name: "COMERCIALES 4 (SUGERIDO)"
+    detail: "servicios"
+    description: "Hoteles, moteles y restaurantes."
+    source_status: "sugerido"
+    visual_cues:
+      - "hotel or restaurant signage"
+      - "hospitality entrance"
+      - "food-service facade"
+
+  - id: "DOTACIONAL_1"
+    source_group: 5
+    source_name: "DOTACIONALES 1"
+    detail: "servicios comunales"
+    description: "Construcciones donde se desarrollan actividades tendientes al bienestar o servicio de una comunidad."
+    source_status: "confirmado"
+    visual_cues:
+      - "community facility"
+      - "public-service signage"
+      - "institutional facade"
+
+  - id: "DOTACIONAL_2"
+    source_group: 6
+    source_name: "DOTACIONALES 2 (SUGERIDO)"
+    detail: "educacion"
+    description: "Edificaciones disenadas para desarrollar actividades educativas o de capacitacion."
+    source_status: "sugerido"
+    visual_cues:
+      - "school or university signage"
+      - "educational campus entrance"
+      - "classroom/institutional building pattern"
+
+  - id: "MOLES_1"
+    source_group: 7
+    source_name: "MOLES (SUGERIDO)"
+    detail: "construcciones en obra"
+    description: "Grandes edificaciones en altura o por area, usualmente en avances de obra 2 y 3."
+    source_status: "sugerido_por_definir"
+    visual_cues:
+      - "large high-rise under construction"
+      - "construction mesh or cranes"
+      - "large building footprint"
+
+  - id: "RURAL_1"
+    source_group: 8
+    source_name: "RURALES"
+    detail: "rurales"
+    description: "Enramadas, kioscos, cobertizos, galpones, gallineros, establos, pesebreras, marraneras, beneficiaderos, silos."
+    source_status: "confirmado"
+    visual_cues:
+      - "rural shed or barn"
+      - "agricultural support structure"
+      - "non-urban surrounding context"
+
+  - id: "MIXTO_1"
+    source_group: 9
+    source_name: "MIXTO 1 RESIDENCIAL CON COMERCIAL 1"
+    detail: "mixto 1"
+    description: "Vivienda y local comercial."
+    source_status: "confirmado"
+    visual_cues:
+      - "residential upper floors"
+      - "ground-floor retail"
+      - "separate residential and commercial access"
+
+  - id: "MIXTO_2"
+    source_group: 10
+    source_name: "MIXTO 2 RESIDENCIAL CON COMERCIAL 2"
+    detail: "mixto 2"
+    description: "Vivienda y oficinas."
+    source_status: "confirmado"
+    visual_cues:
+      - "residential building with office use indicators"
+      - "professional-services signage in residential structure"
+      - "mixed access patterns"
+
+review_only_flags:
+  - id: "UNKNOWN_OR_INSUFFICIENT_EVIDENCE"
+    description: "Use when images do not support a reliable class decision."
+  - id: "REQUIRES_FIELD_VISIT"
+    description: "Use when source notes indicate validators or field visit may be required."
+  - id: "LOW_IMAGE_QUALITY"
+    description: "Use for occlusion, blur, missing facade, night images, or unusable view."

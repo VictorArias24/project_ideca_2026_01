@@ -1,0 +1,548 @@
+# VLM Image Classification Project Spec
+# Project-specific template derived from:
+# - Arquitectura.docx
+# - PLAN_E_IDEAS.docx
+# - SOTA_VLM_IDECA_Classificacion_TIpos_De_Uso_2026.docx
+# - Victor Compendio de 10 Usos para el Modelo.xlsx
+# - Victor Compendio de Usos para el Modelo.xlsx
+
+spec_version: "0.1.0"
+status: "draft"
+
+project:
+  name: "ideca_bogota_streetview_use_classification"
+  objective: >
+    Classify building use in Bogota from multiple Google Street View images
+    using a vision-language model, structured reasoning, confidence estimates,
+    and a human review queue for low-confidence or ambiguous cases.
+  city_scope: "Bogota"
+  input_unit: "building"
+  decision_type: "multi_label_with_primary_label"
+  business_outputs:
+    - "Primary building-use class"
+    - "Optional secondary classes for mixed-use buildings"
+    - "Visible evidence supporting the prediction"
+    - "Confidence per predicted class"
+    - "Human-review flag"
+
+source_documents:
+  architecture: "Arquitectura.docx"
+  exploration_plan: "PLAN_E_IDEAS.docx"
+  sota_review: "SOTA_VLM_IDECA_Classificacion_TIpos_De_Uso_2026.docx"
+  taxonomy_current_10_classes: "Victor Compendio de 10 Usos para el Modelo.xlsx"
+  taxonomy_legacy_20_groups: "Victor Compendio de Usos para el Modelo.xlsx"
+  baseline_implementation: "ideca_ml_bogota_land_use"
+
+baseline_implementation:
+  name: "kimi_outlines_baseline"
+  path: "ideca_ml_bogota_land_use"
+  model: "moonshotai/Kimi-VL-A3B-Thinking-2506"
+  runtime:
+    - "FastAPI"
+    - "Transformers"
+    - "Outlines 1.2.11"
+    - "Pydantic"
+    - "SQLAlchemy async"
+  current_api:
+    classify: "POST /classify with base64 images"
+    health: "GET /health"
+    batches:
+      - "POST /batches"
+      - "GET /batches"
+      - "GET /batches/{batch_id}"
+      - "GET /batches/{batch_id}/export"
+  baseline_taxonomy: "legacy_20_class"
+  project_current_taxonomy: "10_class"
+  current_output:
+    classification: "3 to 5 categories with confidence"
+    reasoning_field: "think"
+  reusable_patterns:
+    - "Pydantic schema constrained output through Outlines"
+    - "PIL format preservation after resize/convert"
+    - "Lazy model loading"
+    - "FastAPI health and classify endpoints"
+    - "Batch tracking and CSV export"
+  known_gaps:
+    - "Image-level/folder-level storage, not final building-level prediction model"
+    - "Legacy 20-class taxonomy does not match current 10-class project taxonomy"
+    - "No human review queue"
+    - "No calibrated confidence"
+    - "No final schema fields for review flag, evidence, taxonomy version, prompt version"
+    - "Requires trust_remote_code=True; needs security decision and pinned revision"
+  baseline_export_observations:
+    file: "ideca_ml_bogota_land_use/all_results.csv"
+    rows: 9588
+    unique_folders: 5257
+    dominant_prediction: "Residenciales"
+    dominant_prediction_rows: 9395
+    average_top_confidence: 0.93
+    interpretation: "Needs class-skew and calibration diagnosis before production use"
+
+scope:
+  in_scope:
+    - "Street-level building facade/use classification"
+    - "Multi-image classification per building"
+    - "Batch jobs below 1,000 buildings"
+    - "Single-building demo and re-run workflow"
+    - "Human-in-the-loop review for uncertain predictions"
+  out_of_scope:
+    - "Parcel ownership inference"
+    - "Legal land-use certification"
+    - "Automatic field-visit replacement for classes requiring validation"
+    - "Pure metadata-only classification without image evidence"
+
+ui:
+  recommendation: "One role-aware operational web application with three primary workspaces"
+  workspaces:
+    classify:
+      primary_users: ["demo_users"]
+      purpose: "Single-building classification demo and re-run"
+      default_layout:
+        left: "Multi-image Street View viewer"
+        center: "Prediction, confidence, review flag, and visible evidence"
+        right: "Building metadata, model profile, and run metadata"
+      primary_actions:
+        - "Submit one building or image set"
+        - "Run classification"
+        - "Switch model profile if permitted"
+        - "Re-run classification"
+        - "Send result to review"
+        - "Export compact result summary"
+      hide_by_default:
+        - "Raw JSON"
+        - "GPU logs"
+        - "Prompt internals"
+        - "Batch orchestration controls"
+    jobs:
+      primary_users: ["job_users", "operations", "data_science"]
+      purpose: "Batch job creation, monitoring, inspection, retry, and export"
+      screens:
+        - "Job list"
+        - "Create job"
+        - "Job detail"
+        - "Results explorer"
+        - "Error/retry panel"
+      primary_actions:
+        - "Create job"
+        - "Validate input manifest"
+        - "Choose model profile"
+        - "Set review threshold"
+        - "Submit job"
+        - "Retry failed records"
+        - "Export predictions and metrics"
+    review:
+      primary_users: ["labelling_humans", "reviewers", "adjudicators"]
+      purpose: "Human review, correction, blind labeling, and adjudication"
+      default_layout:
+        left: "Synchronized multi-image building viewer"
+        center: "Canonical label decision panel"
+        right: "Model prediction, confidence, evidence, quality flags, and metadata"
+      modes:
+        - "review_mode"
+        - "blind_labeling_mode"
+        - "adjudication_mode"
+      primary_actions:
+        - "Accept prediction"
+        - "Change label"
+        - "Add secondary label"
+        - "Mark unknown"
+        - "Mark requires field visit"
+        - "Request more images"
+        - "Flag image quality issue"
+        - "Add reviewer note"
+  navigation:
+    mvp:
+      - "Classify"
+      - "Jobs"
+      - "Review"
+    later_or_admin:
+      - "Evaluations"
+      - "Settings"
+  role_permissions:
+    demo_user:
+      default_workspace: "Classify"
+      run_single_classification: true
+      create_batch_jobs: false
+      review_labels: false
+      edit_taxonomy_or_thresholds: false
+    job_user:
+      default_workspace: "Jobs"
+      run_single_classification: true
+      create_batch_jobs: true
+      review_labels: "optional_read_only"
+      edit_taxonomy_or_thresholds: false
+    label_reviewer:
+      default_workspace: "Review"
+      run_single_classification: false
+      create_batch_jobs: false
+      review_labels: true
+      edit_taxonomy_or_thresholds: false
+    admin_data_scientist:
+      default_workspace: "Jobs_or_Review"
+      run_single_classification: true
+      create_batch_jobs: true
+      review_labels: true
+      edit_taxonomy_or_thresholds: true
+
+label_space:
+  taxonomy_file: "specs/label_taxonomy_template.yaml"
+  canonical_taxonomy: "10_class_current"
+  legacy_20_group_taxonomy_available_for_mapping: true
+  primary_classes:
+    - "RESIDENCIAL_1"
+    - "COMERCIAL_1"
+    - "COMERCIAL_2"
+    - "COMERCIAL_3"
+    - "DOTACIONAL_1"
+    - "DOTACIONAL_2"
+    - "MOLES_1"
+    - "RURAL_1"
+    - "MIXTO_1"
+    - "MIXTO_2"
+  special_handling:
+    mixed_use:
+      labels: ["MIXTO_1", "MIXTO_2"]
+      rule: "Predict mixed-use when facade evidence supports two active uses."
+    suggested_or_unstable:
+      labels: ["COMERCIAL_3", "DOTACIONAL_2", "MOLES_1"]
+      rule: "Track separately in metrics because source taxonomy marks them as suggested."
+    field_validation_recommended:
+      rule: "Route to review when visual evidence is insufficient or class is known to require validators."
+
+input_data:
+  source: "Google Street View images referenced from Azure object storage"
+  storage_uri_pattern: "azure://<container>/<job_id>/<building_id>/<view_id>.<ext>"
+  accepted_formats: ["jpg", "jpeg", "png", "webp"]
+  views_per_building:
+    default: 4
+    minimum: 1
+    preferred_views:
+      - "front"
+      - "left_oblique"
+      - "right_oblique"
+      - "alternate_or_best_available"
+    rationale: "The SOTA document recommends 4 views as the best accuracy-latency balance."
+  image_quality_checks:
+    - "Image opens and has nonzero dimensions"
+    - "Facade or relevant building context is visible"
+    - "No duplicate or near-duplicate view repeated as all inputs"
+    - "Record occlusion, blur, night image, construction, and obstruction flags"
+  required_metadata:
+    - "job_id"
+    - "building_id"
+    - "image_uri"
+    - "view_id"
+    - "capture_source"
+  optional_metadata:
+    - "lat"
+    - "lon"
+    - "heading"
+    - "capture_date"
+    - "parcel_id"
+    - "locality"
+    - "upz"
+
+architecture:
+  style: "hexagonal_ports_and_adapters"
+  layers:
+    gui_api:
+      responsibilities:
+        - "Job management"
+        - "Single-building classify demo"
+        - "Human review queue"
+      suggested_runtime: "FastAPI plus web UI"
+    application_services:
+      responsibilities:
+        - "Batch orchestration"
+        - "Classification workflow"
+        - "Review routing"
+        - "Metrics and audit logging"
+    ports:
+      - "object_storage"
+      - "vlm_client"
+      - "schema_enforcer"
+      - "label_store"
+      - "review_store"
+      - "metrics_store"
+    infrastructure:
+      object_storage:
+        azure: "Azure Data Lake Storage Gen2"
+        gcp_reference: "Cloud Storage"
+      ml_platform:
+        azure: "Microsoft Foundry / Azure ML Workspace"
+        gcp_reference: "Vertex AI"
+      foundry_vlm_serving:
+        azure: "Hugging Face VLM deployed on Microsoft Foundry as Azure ML Managed Online Endpoint"
+        route_options:
+          - "/v1/chat/completions"
+          - "/generate"
+        client_options:
+          - "OpenAI-compatible Python client with azureml-model-deployment header"
+          - "Azure ML Python SDK"
+          - "cURL or HTTP client"
+      container_registry:
+        azure: "Azure Container Registry"
+        gcp_reference: "Artifact Registry"
+      database:
+        azure: "Azure Database for PostgreSQL Flexible Server"
+        gcp_reference: "Cloud SQL Postgres"
+      secrets:
+        azure: "Azure Key Vault"
+        gcp_reference: "Secret Manager"
+      observability:
+        azure: "Azure Monitor + Application Insights"
+        gcp_reference: "Cloud Logging"
+
+deployment:
+  profiles:
+    online_demo:
+      purpose:
+        - "Live classify tab"
+        - "Single-building re-runs from review queue"
+      endpoint_type: "online_https"
+      min_instances: 0
+      cold_start_expected_seconds: "60-120"
+      gpu_target: "A100_80GB_when_available"
+    batch_jobs:
+      purpose:
+        - "Real jobs below 1,000 buildings"
+      endpoint_type: "batch_endpoint"
+      preferred_compute: "A100_80GB"
+      fallback_compute: "A10_24GB_or_T4_16GB_with_limitations"
+  azure_compute_options:
+    demo_24gb:
+      preferred: "Standard_NV36ads_A10_v5"
+      fallback: "Standard_NC4as_T4_v3"
+      caveat: "T4 16GB is tight and not practical for the target problem."
+    cloud_80gb:
+      preferred: "Standard_NC24ads_A100_v4"
+      rationale: "Main cloud GPU made available by Microsoft; supports larger models and context."
+  microsoft_foundry_huggingface:
+    status: "candidate_online_vlm_deployment_path"
+    reference: "https://huggingface.co/docs/microsoft-azure/foundry/examples/deploy-vision-language-models"
+    example_model: "Qwen/Qwen2.5-VL-32B-Instruct"
+    endpoint_type: "Azure ML Managed Online Endpoint under Microsoft Foundry"
+    model_uri_pattern: "azureml://registries/HuggingFace/models/<model-id-on-azure>/labels/latest"
+    required_project_type: "Hub-based Microsoft Foundry project"
+    example_sku_from_tutorial: "Standard_NC40ads_H100_v5"
+    request_requirements:
+      - "Use azureml-model-deployment header when calling OpenAI-compatible routes"
+      - "Use /v1/chat/completions for chat-style image-text requests when exposed"
+      - "Use image URLs or base64 data URLs for image inputs"
+      - "Use Markdown image syntax for TGI /generate route"
+    first_experiment:
+      - "Confirm model availability in Foundry Hugging Face collection"
+      - "Confirm region and GPU quota"
+      - "Deploy managed online endpoint"
+      - "Send 4-image building classification request"
+      - "Validate response against classification_output_schema.json"
+      - "Measure latency, cold start, cost, and output quality"
+  cost_tracking:
+    batch_1k_reference:
+      a100_80gb:
+        expected_runtime: "about 25 minutes"
+        expected_cost_usd: 1.50
+      a10_24gb_cpu_offload:
+        expected_runtime: "about 5.5 hours"
+        expected_cost_usd: 6.60
+    monthly_base_reference_usd: "35-45"
+
+modeling_strategy:
+  baseline_sequence:
+    - "Prompted closed or open VLM baseline with structured output"
+    - "Open-weight 24GB benchmark"
+    - "Open-weight 80GB benchmark"
+    - "QLoRA fine-tuning when eval evidence justifies it"
+  candidate_models:
+    tier_24gb_fast:
+      profile_id: "24gb_fast"
+      candidates:
+        - model: "Qwen3-VL-8B-Instruct"
+          quantization: "4-bit NF4 or AWQ"
+          preferred: true
+        - model: "Qwen2.5-VL-7B-Instruct"
+          quantization: "AWQ or NF4"
+        - model: "InternVL3-8B"
+          quantization: "AWQ or Int4"
+        - model: "Gemma E4B or similar small VLM"
+          quantization: "Int4"
+    tier_80gb_high_accuracy:
+      profile_id: "80gb_high_accuracy"
+      candidates:
+        - model: "Qwen3.6-35B-A3B"
+          quantization: "8-bit"
+          preferred: true
+        - model: "Qwen2.5-VL-32B-or-72B-Instruct"
+          quantization: "8-bit or 4-bit"
+        - model: "InternVL3-38B-or-78B"
+          quantization: "8-bit or 4-bit"
+  inference_frameworks:
+    development: "HuggingFace Transformers"
+    high_throughput: "vLLM"
+    qwen_moe_optimized: "SGLang"
+  classification_strategies_to_test:
+    - id: "per_image_vote"
+      description: "Classify each view independently and aggregate by vote."
+      expected_use: "Baseline and diagnostics"
+    - id: "multi_image_single_prompt"
+      description: "Send all selected views in one prompt and produce one building-level decision."
+      expected_use: "Primary benchmark path"
+    - id: "embedding_fusion"
+      description: "Encode images, fuse embeddings, and train a lightweight classifier."
+      expected_use: "Production candidate for fixed taxonomy"
+    - id: "qlora_finetuned_vlm"
+      description: "Fine-tune the VLM for multi-image building-use classification."
+      expected_use: "High-accuracy specialized model"
+
+structured_output:
+  schema_file: "specs/classification_output_schema.json"
+  enforcement:
+    local_open_weight: "XGrammar or equivalent constrained JSON decoding"
+    api_or_general: "JSON schema structured output"
+  pydantic_model_name: "Clasificacion"
+  required_fields:
+    - "building_id"
+    - "caracteristicas_visibles"
+    - "clases"
+    - "requiere_revision"
+    - "model_id"
+    - "perfil_modelo"
+  review_rule: "requires_review = true when max confidence < 0.65 or ambiguity/safety flags are present"
+
+fine_tuning:
+  method: "QLoRA"
+  train_when:
+    - "Prompted baseline underperforms target macro F1"
+    - "Critical classes have insufficient recall"
+    - "Model confuses local Bogota facade/use patterns"
+  recommended_data_volume:
+    minimum_images_per_class: 100
+    recommended_images_per_class: "200-500"
+    ideal_images_per_class: "1000+"
+    images_per_training_example: "3-4 preferred"
+  split:
+    train: 0.70
+    validation: 0.15
+    test: 0.15
+  leakage_controls:
+    - "No same building_id across splits"
+    - "No near-duplicate images across train/validation/test"
+    - "Keep same parcel_id in one split when parcel_id exists"
+  tier_24gb_lora:
+    rank: 16
+    alpha: 32
+    dropout: 0.1
+    batch_size: 1
+    gradient_accumulation: 8
+    learning_rate: 0.0002
+  tier_80gb_lora:
+    rank: 32
+    alpha: 64
+    dropout: 0.1
+    batch_size: 4
+    gradient_accumulation: 4
+    learning_rate: 0.0001
+
+evaluation:
+  first_phase_eval_set:
+    size: "<200 buildings"
+    grading: "LLM-as-judge plus manual review"
+    purpose: "Fast model and prompt triage"
+  production_eval_set:
+    minimum_size: ">= 800 labeled buildings"
+    recommended_size: "1600-4000 labeled buildings"
+    source: "Expanded through HITL review queue"
+  metrics:
+    classification:
+      - "accuracy"
+      - "macro_f1"
+      - "weighted_f1"
+      - "per_class_precision"
+      - "per_class_recall"
+      - "confusion_matrix"
+      - "top_2_accuracy"
+    calibration:
+      - "expected_calibration_error"
+      - "brier_score"
+      - "confidence_histogram"
+    operations:
+      - "review_rate"
+      - "human_override_rate"
+      - "latency_p50"
+      - "latency_p95"
+      - "cost_per_1000_buildings"
+  launch_gates:
+    macro_f1_minimum: 0.85
+    critical_class_recall_minimum: 0.90
+    expected_calibration_error_maximum: 0.08
+    review_rate_maximum: 0.25
+  slices:
+    - "class_label"
+    - "locality"
+    - "image_quality"
+    - "number_of_views"
+    - "mixed_use_vs_single_use"
+    - "suggested_vs_confirmed_taxonomy"
+    - "model_profile"
+
+human_in_the_loop:
+  enabled: true
+  route_to_review_when:
+    - "max_class_confidence < 0.65"
+    - "top_2_margin < 0.10"
+    - "model predicts suggested/unstable class with weak evidence"
+    - "image quality flags indicate occlusion, blur, night, or missing facade"
+    - "class requires validator or field visit according to taxonomy notes"
+  reviewer_actions:
+    - "accept_prediction"
+    - "change_label"
+    - "mark_unknown"
+    - "request_more_images"
+    - "mark_requires_field_visit"
+  audit_fields:
+    - "reviewer_id"
+    - "review_timestamp"
+    - "original_prediction"
+    - "corrected_label"
+    - "correction_reason"
+
+monitoring:
+  model_quality:
+    - "sampled_manual_audit_accuracy"
+    - "per_class_drift"
+    - "confidence_drift"
+    - "override_rate"
+  system_health:
+    - "endpoint_errors"
+    - "batch_failures"
+    - "cold_start_time"
+    - "gpu_memory_usage"
+    - "queue_age"
+  retraining_triggers:
+    - "macro_f1_on_audit_set_below_threshold"
+    - "human_override_rate_above_threshold"
+    - "new class or taxonomy change"
+    - "new data source or image distribution shift"
+
+security_and_governance:
+  input_validation: "Pydantic or equivalent strict validation"
+  identity:
+    service_to_service:
+      azure: "Managed Identity"
+      gcp_reference: "Workload Identity"
+    user_auth:
+      azure: "Microsoft Entra ID"
+      gcp_reference: "Meli auth plus IAP"
+  secrets_management: "Azure Key Vault"
+  auditability:
+    - "Every prediction stores model_id, model_profile, prompt_version, schema_version, and taxonomy_version"
+    - "Every manual correction is traceable"
+  privacy_review_required: true
+  model_card_required: true
+
+open_questions:
+  - "Define exact source path convention for Azure image blobs."
+  - "Define whether COMERCIAL_2 means office-only or broader services in final taxonomy."
+  - "Decide whether moles/construction should be a production class or review-only flag."
+  - "Confirm production target for batch size: buildings per job, images per building, and SLA."
+  - "Choose first benchmark set: Qwen3-VL-8B vs Qwen2.5-VL-7B vs InternVL3-8B."

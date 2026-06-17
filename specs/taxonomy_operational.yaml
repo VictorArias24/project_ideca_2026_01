@@ -1,0 +1,560 @@
+# Operational Taxonomy: Bogotá Building Use Classification
+#
+# Derived from:
+#   - Victor Compendio de 10 Usos para el Modelo.xlsx (stakeholder: Victor)
+#   - Victor Compendio de Usos para el Modelo.xlsx (legacy 20-group, for mapping)
+#   - Victor_Casos Modelo Usos x Fachadas.docx (59 facade image examples)
+#   - SPEC.md §6 Label Taxonomy
+#
+# Each class entry includes positive/negative definitions, visual cues,
+# confusing-neighbor distinctions, review conditions, and source status.
+#
+# Decision assumptions (pending stakeholder confirmation):
+#   - MOLES_1: production class with mandatory review routing
+#   - Label meaning: operational approximation of official use from visible evidence
+#   - Suggested classes (COMERCIAL_3, DOTACIONAL_2): predict normally, always route to review
+#   - COMERCIAL_2: office AND professional services (not hospitality/retail)
+#   - COMERCIAL_3: single class covering hotels, motels, restaurants (sub-label split later)
+#   - Granularity: per building
+#
+# Expert facade examples reference sections from:
+#   "Victor_Casos Modelo Usos x Fachadas.docx"
+
+taxonomy_version: "1.0.0"
+taxonomy_name: "bogota_building_use_10_class_operational"
+language: "es"
+label_unit: "building"
+label_meaning: "operational_approximation_of_official_use_from_visible_evidence"
+source_files:
+  current_taxonomy: "Victor Compendio de 10 Usos para el Modelo.xlsx"
+  legacy_20_group: "Victor Compendio de Usos para el Modelo.xlsx"
+  facade_examples: "Victor_Casos Modelo Usos x Fachadas.docx"
+
+labels:
+  # ========================================================================
+  # 1. RESIDENCIAL_1 — Vivienda
+  # ========================================================================
+  - id: "RESIDENCIAL_1"
+    source_group: 1
+    source_name: "RESIDENCIALES"
+    detail: "vivienda"
+    source_status: "confirmado"
+    description: >
+      Construcciones destinadas exclusiva o primordialmente a vivienda.
+      Incluye casas unifamiliares, edificios de propiedad horizontal (PH),
+      condominios multifamiliares y torres residenciales.
+    positive_definition: >
+      Buildings intended exclusively or primarily for housing. Includes
+      single-family houses, apartment buildings (PH/condominiums), and
+      residential towers. The primary visual signal is residential-scale
+      architecture with domestic-use indicators.
+    negative_definition: >
+      Does NOT include hotels or short-term lodging (COMERCIAL_3), mixed-use
+      buildings with ground-floor commerce (MIXTO_1/MIXTO_2), residential-care
+      facilities or shelters (DOTACIONAL_1), or buildings under construction
+      (MOLES_1).
+    visual_cues:
+      - "Balcones con ropa tendida, materas o muebles domésticos"
+      - "Cortinas residenciales en ventanas (no persianas de oficina)"
+      - "Puertas de acceso residencial con citófono/intercomunicador"
+      - "Rejas de seguridad residencial en primer piso"
+      - "Ventanas pequeñas o medianas con proporción residencial (no vitrinas comerciales)"
+      - "Antenas de TV satelital en balcones o terrazas"
+      - "Fachada sin letreros comerciales ni avisos de negocio"
+      - "Tipologías residenciales por estrato: E1 (autoconstrucción progresiva), E2-E3 (casas en serie), E4-E6 (edificios con acabados)"
+    confusing_neighbors:
+      - class: "MIXTO_1"
+        distinction: "Buscar local comercial en primer piso con vitrina o letrero. Si hay entrada independiente al comercio, es MIXTO_1."
+      - class: "MIXTO_2"
+        distinction: "Buscar placa profesional o letrero de oficina en fachada residencial."
+      - class: "COMERCIAL_2"
+        distinction: "Las oficinas pueden parecer apartamentos. Verificar si hay letreros corporativos, directorio en lobby, ventanas uniformes sin cortinas domésticas."
+      - class: "MOLES_1"
+        distinction: "Edificio residencial en obra con andamios o malla de construcción visible."
+      - class: "DOTACIONAL_1"
+        distinction: "Edificio con apariencia residencial pero con letrero institucional (hogar de paso, fundación)."
+    review_conditions:
+      - "Edificio con apariencia residencial pero con letrero ambiguo"
+      - "Construcción que impide ver la fachada"
+      - "Edificio aparentemente abandonado (ventanas tapiadas, fachada deteriorada)"
+      - "Primer piso tapiado o cerrado que podría ocultar comercio"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS CLARAMENTE RESIDENCIALES POR TIPOLOGÍAS"
+      strata:
+        - "TIPOLOGÍA 1: Estrato 1 — autoconstrucción progresiva"
+        - "TIPOLOGÍA 2: Estrato 2 — casas en serie básicas"
+        - "TIPOLOGÍA 3: Estrato 3 — casas con acabados medios"
+        - "TIPOLOGÍA 4: Estrato 4 — edificios multifamiliares bajos"
+        - "TIPOLOGÍA 5: Estrato 5 — edificios con zonas comunes"
+        - "TIPOLOGÍA 6: Estrato 6 — torres residenciales de lujo"
+      images_count: 24
+
+  # ========================================================================
+  # 2. COMERCIAL_1 — Locales, compra-venta (Retail/Commerce)
+  # ========================================================================
+  - id: "COMERCIAL_1"
+    source_group: 2
+    source_name: "COMERCIALES 1"
+    detail: "locales - compra venta"
+    source_status: "confirmado"
+    description: >
+      Almacenamiento, distribución o intercambio de productos, bienes o
+      servicios con interés comercial. Locales comerciales, tiendas de venta
+      directa al público, supermercados de barrio, droguerías, panaderías
+      con atención al público.
+    positive_definition: >
+      Buildings used for retail trade, product sales to the public, or
+      commercial exchange. Includes storefronts, shops, neighborhood markets,
+      pharmacies with public access, and small retail businesses.
+    negative_definition: >
+      Does NOT include offices/services without retail display (COMERCIAL_2),
+      hotels/restaurants (COMERCIAL_3), warehouses without customer access
+      (merged out of 10-class taxonomy, reclassify by appearance), shopping
+      centers (merged, reclassify as COMERCIAL_1 or COMERCIAL_2 depending
+      on visible use), or mixed-use with upper-floor housing (MIXTO_1).
+    visual_cues:
+      - "Vitrinas de exhibición de productos hacia la calle"
+      - "Letreros comerciales con nombre del negocio y horario"
+      - "Puerta de acceso al público (abierta, con aviso de 'abierto')"
+      - "Fachada con reja metálica de seguridad comercial (no residencial)"
+      - "Avisos de precios, promociones o marcas visibles desde el exterior"
+      - "Entrada independiente del resto del edificio"
+      - "Primer piso con altura comercial (más alto que residencial)"
+    confusing_neighbors:
+      - class: "MIXTO_1"
+        distinction: "Si la entrada residencial y comercial comparten la misma fachada con accesos separados, es MIXTO_1. Si todo el predio es comercio sin vivienda visible, es COMERCIAL_1."
+      - class: "COMERCIAL_2"
+        distinction: "Si no hay vitrina de exhibición ni venta directa visible, sino letrero profesional/oficina, es COMERCIAL_2."
+      - class: "COMERCIAL_3"
+        distinction: "Los restaurantes tienen mesas visibles o carta; los hoteles tienen recepción visible. Un local de venta de comida para llevar es COMERCIAL_1."
+    review_conditions:
+      - "Letrero comercial ilegible o ausente pero fachada parece negocio"
+      - "Local cerrado o tapiado (no se puede confirmar uso actual)"
+      - "Edificio tipo bodega con posible comercio (los expertos separaron bodegas)"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS CLARAMENTE COMERCIALES"
+      images_count: 4
+
+  # ========================================================================
+  # 3. COMERCIAL_2 — Oficinas / Professional Services
+  # ========================================================================
+  - id: "COMERCIAL_2"
+    source_group: 3
+    source_name: "COMERCIALES 2"
+    detail: "oficinas"
+    source_status: "confirmado"
+    description: >
+      Edificaciones donde se desarrollan actividades destinadas a la
+      prestación de servicios profesionales. Oficinas corporativas,
+      consultorios, firmas de abogados, contadores, entidades financieras,
+      oficinas gubernamentales, centros de atención al público no comercial.
+    positive_definition: >
+      Buildings used for professional service provision. Includes corporate
+      offices, consulting firms, law practices, accounting offices, banks,
+      government offices, and non-retail service centers.
+    negative_definition: >
+      Does NOT include retail storefronts with product display (COMERCIAL_1),
+      hotels/restaurants (COMERCIAL_3), mixed-use residential+office (MIXTO_2),
+      or community service facilities (DOTACIONAL_1).
+    visual_cues:
+      - "Letreros o placas profesionales en la fachada (abogados, contadores, consultorios)"
+      - "Ventanas uniformes tipo oficina (sin cortinas domésticas ni vitrinas)"
+      - "Directorio de empresas u oficinas en el lobby o entrada"
+      - "Fachada corporativa con logo institucional (bancos, aseguradoras)"
+      - "Entrada con recepción visible o puerta de vidrio con propósitos corporativos"
+      - "Aire acondicionado visible (unidades de ventana o splits múltiples)"
+      - "Edificio de varios pisos con ventanas idénticas y sin balcones"
+    confusing_neighbors:
+      - class: "RESIDENCIAL_1"
+        distinction: "Edificio con ventanas uniformes pero sin letreros: verificar si hay cortinas domésticas (residencial) o persianas de oficina. Buscar citófono vs. directorio en entrada."
+      - class: "MIXTO_2"
+        distinction: "Si el edificio tiene claramente pisos residenciales (balcones, ropa tendida) y solo algunos pisos tienen oficinas, es MIXTO_2."
+      - class: "DOTACIONAL_1"
+        distinction: "Las oficinas gubernamentales pueden confundirse con dotacional. Si es atención a la comunidad (no servicios profesionales privados), considerar DOTACIONAL_1."
+    review_conditions:
+      - "Letreros ilegibles o ausentes en edificio que parece oficina"
+      - "Edificio con arquitectura de oficinas pero aparentemente vacío"
+      - "Conversión aparente de casa residencial a oficina (MIXTO_2 vs. COMERCIAL_2)"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS DE OFICINAS"
+      images_count: 3
+
+  # ========================================================================
+  # 4. COMERCIAL_3 — Servicios: Hoteles, Moteles, Restaurantes (SUGERIDO)
+  # ========================================================================
+  - id: "COMERCIAL_3"
+    source_group: 4
+    source_name: "COMERCIALES 4 (SUGERIDO)"
+    detail: "servicios"
+    source_status: "sugerido"
+    suggested_subclasses: ["Hoteles", "Moteles", "Restaurantes"]
+    description: >
+      Hoteles, moteles y restaurantes. Establecimientos de hospitalidad
+      y servicio de alimentos. Esta clase está marcada como "sugerido"
+      en la fuente original y debe lanzarse con revisión obligatoria.
+    positive_definition: >
+      Buildings used for hospitality services: hotels (accommodation with
+      reception), motels (drive-up accommodation), and restaurants (food
+      service with dine-in seating visible or implied by signage).
+    negative_definition: >
+      Does NOT include residential buildings (RESIDENCIAL_1), retail food
+      shops without dine-in (COMERCIAL_1 — panadería para llevar), offices
+      (COMERCIAL_2), or community kitchens/shelters (DOTACIONAL_1).
+    visual_cues:
+      - "Letrero de hotel con recepción visible desde el exterior"
+      - "Entrada con portero, valet parking o zona de carga de equipaje"
+      - "Restaurante: mesas visibles, carta/menú en entrada, toldo de terraza"
+      - "Motel: entrada vehicular discreta, letrero con tarifas, sin ventanas al exterior"
+      - "Fachada con nombre del establecimiento en gran formato"
+      - "Elementos decorativos de hospitalidad (jardineras, iluminación de fachada)"
+    confusing_neighbors:
+      - class: "COMERCIAL_1"
+        distinction: "Un restaurante tiene mesas/comensales visibles; un local de comida para llevar no. Verificar consumo en sitio."
+      - class: "RESIDENCIAL_1"
+        distinction: "Un hotel boutique puede confundirse con edificio residencial. Buscar recepción, letrero de tarifas, o entrada de huéspedes."
+      - class: "DOTACIONAL_1"
+        distinction: "Un albergue/hogar de paso es DOTACIONAL_1, no COMERCIAL_3. Verificar si es entidad sin ánimo de lucro."
+    review_conditions:
+      - "SIEMPRE: Toda predicción COMERCIAL_3 debe ir a revisión (clase sugerida)"
+      - "Letrero de establecimiento ambiguo (podría ser bar, club, o comercio)"
+      - "Fachada que parece hotel pero sin letrero visible"
+    expert_facade_examples:
+      status: "SIN_EJEMPLOS"
+      note: "El experto no incluyó imágenes de fachada para hoteles, moteles ni restaurantes en el documento de casos."
+
+  # ========================================================================
+  # 5. DOTACIONAL_1 — Servicios Comunales / Community Facilities
+  # ========================================================================
+  - id: "DOTACIONAL_1"
+    source_group: 5
+    source_name: "DOTACIONALES 1"
+    detail: "servicios comunales"
+    source_status: "confirmado"
+    absorbs_legacy: ["DOTACIONALES 3 (salud)", "DOTACIONALES 4 (religiosos)", "DOTACIONALES 5 (recreativos)"]
+    description: >
+      Construcciones donde se desarrollan actividades tendientes al
+      bienestar o servicio de una comunidad. Sedes comunales, centros
+      de salud, hospitales, templos religiosos, centros recreativos y
+      deportivos, bibliotecas públicas, hogares de paso, fundaciones.
+      En la taxonomía de 10 clases, absorbe los antiguos grupos
+      DOTACIONALES 3 (salud), 4 (religiosos) y 5 (recreativos),
+      todos marcados "Se puede unificar" por los expertos.
+    positive_definition: >
+      Buildings used for community welfare or public service. Includes
+      community centers, health clinics and hospitals, religious temples
+      and churches, recreational and sports centers, public libraries,
+      shelters, and non-profit foundations.
+    negative_definition: >
+      Does NOT include private professional offices (COMERCIAL_2),
+      educational buildings (DOTACIONAL_2 — split out as suggested),
+      private clubs with membership fees (COMERCIAL_3 if hospitality),
+      or government administrative offices (COMERCIAL_2).
+    visual_cues:
+      - "Letrero institucional o gubernamental (alcaldía, gobernación, entidad pública)"
+      - "Fachada de centro de salud/hospital: entrada de urgencias, logo de cruz roja/verde"
+      - "Templo religioso: elementos arquitectónicos distintivos (cruz, cúpula, campanario, minarete)"
+      - "Centro comunal: salón grande, escudo oficial, avisos de servicios a la comunidad"
+      - "Instalaciones deportivas visibles (canchas, piscina, graderías)"
+      - "Entrada amplia, accesibilidad para público, rampas"
+      - "Letrero de fundación, hogar de paso, o entidad sin ánimo de lucro"
+    confusing_neighbors:
+      - class: "COMERCIAL_2"
+        distinction: "Los centros de salud privados (consultorios) son COMERCIAL_2. Un hospital o clínica con urgencias es DOTACIONAL_1."
+      - class: "DOTACIONAL_2"
+        distinction: "Un colegio tiene uniformes visibles, patio de recreo, letrero de institución educativa. Una biblioteca pública es DOTACIONAL_1."
+      - class: "COMERCIAL_3"
+        distinction: "Un albergue/hogar de paso (DOTACIONAL_1) vs. hotel (COMERCIAL_3): buscar letrero de fundación o entidad sin ánimo de lucro."
+    review_conditions:
+      - "Letrero institucional ilegible o ambiguo"
+      - "Edificio que parece dotacional pero sin identificación visible"
+      - "Fachada de templo que podría ser de otra denominación o uso convertido"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS CLARAMENTE DOTACIONALES"
+      note: "Incluye 4 imágenes en esta sección + el ejemplo de 'Templo de culto' aparece en la sección de BODEGAS del documento (confirmando que el experto lo trata como dotacional pero lo ubicó junto a bodegas por error de layout)."
+      images_count: 8
+
+  # ========================================================================
+  # 6. DOTACIONAL_2 — Educación (SUGERIDO)
+  # ========================================================================
+  - id: "DOTACIONAL_2"
+    source_group: 6
+    source_name: "DOTACIONALES 2 (SUGERIDO)"
+    detail: "educación"
+    source_status: "sugerido"
+    suggested_subclasses: ["Colegios", "Universidades", "Jardines infantiles", "Centros de capacitación", "Institutos técnicos"]
+    description: >
+      Edificaciones diseñadas para desarrollar actividades educativas o
+      de capacitación. Colegios, universidades, jardines infantiles,
+      centros de formación técnica, institutos de idiomas. Marcada como
+      "sugerido" con 5 subclases potenciales en la fuente original.
+      Debe lanzarse con revisión obligatoria.
+    positive_definition: >
+      Buildings designed for education or training. Includes schools,
+      universities, kindergartens/nurseries, technical institutes, and
+      language schools.
+    negative_definition: >
+      Does NOT include community centers offering occasional classes
+      (DOTACIONAL_1), corporate training centers inside office buildings
+      (COMERCIAL_2), or libraries without teaching function (DOTACIONAL_1).
+    visual_cues:
+      - "Letrero de institución educativa (colegio, universidad, instituto)"
+      - "Patio de recreo visible: columpios, cancha, zona de juegos infantiles"
+      - "Entrada con control de acceso y uniformes escolares visibles"
+      - "Múltiples aulas visibles desde el exterior con pupitres/tableros"
+      - "Fachada institucional con escudo, bandera, o símbolos educativos"
+      - "Ruta de transporte escolar o paradero de buses en la entrada"
+    confusing_neighbors:
+      - class: "DOTACIONAL_1"
+        distinction: "Un centro comunal puede tener salones similares a aulas. La presencia de uniformes, timbres escolares, o letrero de 'colegio' define DOTACIONAL_2."
+      - class: "COMERCIAL_2"
+        distinction: "Un instituto de idiomas o centro de capacitación técnico puede confundirse con oficina. Buscar salones de clase visibles, no cubículos."
+      - class: "RESIDENCIAL_1"
+        distinction: "Un jardín infantil en casa adaptada puede parecer residencial. Buscar letrero, rejas de seguridad infantil, dibujos en fachada."
+    review_conditions:
+      - "SIEMPRE: Toda predicción DOTACIONAL_2 debe ir a revisión (clase sugerida)"
+      - "Letrero de institución ilegible o genérico"
+      - "Fachada que parece colegio pero sin señalización educativa clara"
+    expert_facade_examples:
+      status: "SIN_EJEMPLOS"
+      note: "El experto no incluyó imágenes de fachada para instituciones educativas en el documento de casos."
+
+  # ========================================================================
+  # 7. MOLES_1 — Construcciones en Obra / Under Construction (SUGERIDO, POR DEFINIR)
+  # ========================================================================
+  - id: "MOLES_1"
+    source_group: 7
+    source_name: "MOLES (SUGERIDO)"
+    detail: "construcciones en obra"
+    source_status: "sugerido_por_definir"
+    description: >
+      Grandes edificaciones en altura (mayores a 4 pisos) o por área
+      (más de 10.000 m²), en avances de obra 2 y 3 (estructura levantada
+      pero sin acabados). Esta clase representa un estado transitorio:
+      una vez terminada la construcción, el edificio pasará a su clase
+      de uso definitiva (RESIDENCIAL_1, COMERCIAL_1/2, etc.).
+    positive_definition: >
+      Large buildings currently under construction, visible by partial
+      structure, construction materials, scaffolding, cranes, or
+      protective mesh. Construction progress stages 2-3 (structure up,
+      finishes incomplete). Includes projects where the future use can
+      sometimes be inferred from curaduría/public notice signs.
+    negative_definition: >
+      Does NOT include minor renovations of inhabited buildings (classify
+      by primary use), vacant lots without construction activity,
+      completed but unoccupied buildings (classify by architectural type),
+      or buildings where construction mesh covers <25% of facade.
+    visual_cues:
+      - "Malla de protección/construcción cubriendo la fachada (verde, naranja, azul)"
+      - "Andamios y estructuras metálicas temporales visibles"
+      - "Grúa torre o maquinaria pesada de construcción en el predio"
+      - "Aviso de curaduría urbana o licencia de construcción en la fachada"
+      - "Estructura de concreto expuesta sin acabados (ladrillo a la vista, varillas)"
+      - "Ventanas sin instalar (huecos vacíos) o solo marcos colocados"
+      - "Gran altura de la edificación en construcción (>4 pisos) o gran área (>10,000 m²)"
+      - "Materiales de construcción apilados visibles"
+    confusing_neighbors:
+      - class: "RESIDENCIAL_1"
+        distinction: "Un edificio residencial en mantenimiento de fachada (andamios parciales <25%) no es MOLES_1. Si toda la fachada está cubierta con malla y la estructura parece incompleta, es MOLES_1."
+      - class: "COMERCIAL_1"
+        distinction: "Local comercial en remodelación interna con fachada intacta: no es MOLES_1. Si se está construyendo desde cero, sí."
+    review_conditions:
+      - "SIEMPRE: Toda predicción MOLES_1 debe ir a revisión (clase por definir)"
+      - "Aviso de curaduría ilegible: no se puede proyectar uso futuro"
+      - "Construcción en etapa temprana (avance 1): imposible predecir uso definitivo"
+      - "Edificio que podría estar abandonado vs. en construcción activa"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS EN AVANCES DE OBRA"
+      note: "El experto incluye avisos de curaduría para proyectar usos futuros en construcciones con avances de obra 2 y 3."
+      images_count: 6
+
+  # ========================================================================
+  # 8. RURAL_1 — Rurales / Rural Structures
+  # ========================================================================
+  - id: "RURAL_1"
+    source_group: 8
+    source_name: "RURALES"
+    detail: "rurales"
+    source_status: "confirmado"
+    description: >
+      Enramadas, kioscos, cobertizos, galpones, gallineros, establos,
+      pesebreras, marraneras, beneficiaderos, silos. Estructuras rurales
+      asociadas a actividades agropecuarias o de subsistencia en zonas
+      no urbanas o periurbanas de Bogotá.
+    positive_definition: >
+      Rural and agricultural structures used for farming, livestock,
+      storage of agricultural products, or rural habitation. Includes
+      sheds, barns, stables, chicken coops, silos, kiosks/canopies,
+      and open-sided structures in non-urban or peri-urban contexts.
+    negative_definition: >
+      Does NOT include urban residential buildings in rural-zoned land
+      (classify as RESIDENCIAL_1 if it looks like a house), industrial
+      warehouses (merged out of taxonomy), or commercial structures
+      in rural areas (classify by visible use).
+    visual_cues:
+      - "Estructura de madera, teja de zinc, o materiales rústicos"
+      - "Techos a dos aguas con materiales económicos (teja, plástico, paja)"
+      - "Cercas de alambre, postes de madera, o vegetación de pastos alrededor"
+      - "Contexto no urbano: vegetación densa, montañas, ausencia de vías pavimentadas"
+      - "Animales visibles (gallinas, vacas, caballos)"
+      - "Cultivos o huertas en el predio o alrededores"
+      - "Construcciones de una sola planta, baja altura"
+      - "Cobertizos abiertos (sin paredes completas) con función de resguardo"
+    confusing_neighbors:
+      - class: "RESIDENCIAL_1"
+        distinction: "Una casa campestre o finca de recreo es RESIDENCIAL_1 si tiene acabados residenciales y apariencia de vivienda permanente. Una estructura rústica de trabajo agropecuario es RURAL_1."
+      - class: "COMERCIAL_1"
+        distinction: "Un vivero o punto de venta de productos agropecuarios en zona rural es COMERCIAL_1 si hay letrero y atención al público."
+    review_conditions:
+      - "Estructura entre lo rural y lo residencial (casa campestre humilde)"
+      - "Contexto periurbano donde lo rural y lo urbano se mezclan"
+      - "Estructura en zona de expansión urbana (podría ser RURAL_1 temporal)"
+    expert_facade_examples:
+      status: "SIN_EJEMPLOS"
+      note: "El experto no incluyó imágenes de fachada para estructuras rurales en el documento de casos."
+
+  # ========================================================================
+  # 9. MIXTO_1 — Residencial + Comercial 1 (Vivienda + Local Comercial)
+  # ========================================================================
+  - id: "MIXTO_1"
+    source_group: 9
+    source_name: "MIXTO 1 RESIDENCIAL CON COMERCIAL 1"
+    detail: "mixto 1"
+    source_status: "confirmado"
+    description: >
+      Vivienda y local comercial en el mismo predio/edificación.
+      Típicamente: primer piso comercial (tienda, local, negocio) y
+      pisos superiores residenciales. También incluye casas que han
+      adaptado parte del primer piso como local comercial.
+    positive_definition: >
+      Buildings with mixed residential AND retail/commercial use in the
+      same structure. Typically ground-floor retail with upper-floor
+      housing. May have separate entrances for residential and commercial
+      areas.
+    negative_definition: >
+      Does NOT include purely commercial buildings where the owner lives
+      elsewhere (COMERCIAL_1), residential buildings adjacent to commercial
+      ones (separate structures), or mixed residential+office (MIXTO_2).
+    visual_cues:
+      - "Primer piso: vitrina, letrero comercial, entrada de negocio"
+      - "Pisos superiores: balcones residenciales, ropa tendida, cortinas domésticas"
+      - "Dos entradas diferenciadas: acceso peatonal residencial + puerta de negocio"
+      - "Timbre/citófono separado para la parte residencial"
+      - "Local comercial activo en planta baja durante horario comercial"
+      - "Fachada que muestra claramente dos usos distintos en diferentes niveles"
+    confusing_neighbors:
+      - class: "COMERCIAL_1"
+        distinction: "Si todo el edificio es comercio (incluyendo pisos superiores usados como bodega/oficina del negocio), es COMERCIAL_1. Si hay vivienda visible arriba, es MIXTO_1."
+      - class: "RESIDENCIAL_1"
+        distinction: "Buscar cualquier letrero, vitrina, o entrada de negocio en primer piso. Un garaje convertido en tienda ya califica como MIXTO_1."
+      - class: "MIXTO_2"
+        distinction: "Si el uso no-residencial es oficina/consultorio (placa profesional), es MIXTO_2. Si es tienda/venta directa, es MIXTO_1."
+    review_conditions:
+      - "Primer piso tapiado o cerrado que podría ser comercio (no se puede confirmar)"
+      - "Letrero comercial ilegible en fachada residencial"
+      - "Edificio que podría tener tres usos: vivienda + comercio + oficina"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS TIPO MIXTO COMERCIO CON VIVIENDA"
+      note: "El experto identifica estos como predios con comercio en primer piso y vivienda en pisos superiores."
+      images_count: 4
+
+  # ========================================================================
+  # 10. MIXTO_2 — Residencial + Comercial 2 (Vivienda + Oficinas)
+  # ========================================================================
+  - id: "MIXTO_2"
+    source_group: 10
+    source_name: "MIXTO 2 RESIDENCIAL CON COMERCIAL 2"
+    detail: "mixto 2"
+    source_status: "confirmado"
+    description: >
+      Vivienda y oficinas en el mismo predio/edificación. Típicamente:
+      casas residenciales que han adaptado parte de su espacio para
+      consultorios, oficinas profesionales, o despachos. También
+      edificios con algunos pisos de oficinas y otros residenciales.
+    positive_definition: >
+      Buildings with mixed residential AND office/professional service use
+      in the same structure. Typically a house or residential building
+      where part has been converted to professional offices, consulting
+      rooms, or service practices.
+    negative_definition: >
+      Does NOT include fully office buildings with no residential use
+      (COMERCIAL_2), mixed residential+retail (MIXTO_1), or residential
+      buildings where someone occasionally works from home without
+      external signage.
+    visual_cues:
+      - "Placa profesional en fachada residencial (abogado, contador, médico, consultor)"
+      - "Letrero de oficina/consultorio junto a entrada residencial"
+      - "Entradas separadas o diferenciadas para oficina y vivienda"
+      - "Conversión visible: ventana residencial convertida en acceso de oficina"
+      - "Edificio con pisos residenciales (balcones) y pisos de oficinas (ventanas uniformes con persianas)"
+      - "Directorio de oficinas en fachada de edificio residencial"
+    confusing_neighbors:
+      - class: "MIXTO_1"
+        distinction: "Placa profesional (MIXTO_2) vs. vitrina/letrero de tienda (MIXTO_1). Oficina = servicios profesionales. Comercio = venta de productos."
+      - class: "COMERCIAL_2"
+        distinction: "Si todo el edificio es oficinas sin residentes visibles, es COMERCIAL_2. Basta una planta residencial visible para ser MIXTO_2."
+      - class: "RESIDENCIAL_1"
+        distinction: "Buscar cualquier placa profesional, letrero de oficina, o entrada no-doméstica. Una casa sin letreros es RESIDENCIAL_1 aunque alguien trabaje desde casa."
+    review_conditions:
+      - "Placa o letrero profesional ilegible"
+      - "Casa residencial con múltiples placas (¿oficinas o simplemente identificación?)"
+      - "Conversión aparente de primer piso a oficina pero sin letrero claro"
+    expert_facade_examples:
+      source_doc: "Victor_Casos Modelo Usos x Fachadas.docx"
+      section: "PREDIOS RESIDENCIALES CON USO DE OFICINAS (COMERCIAL)"
+      note: "El experto identifica estos como predios residenciales que han sido adaptados para uso de oficinas."
+      images_count: 4
+
+# ============================================================================
+# Review-Only Flags
+# ============================================================================
+# These are not production classes. They are conditions that affect routing
+# or prediction metadata.
+
+review_only_flags:
+  - id: "UNKNOWN_OR_INSUFFICIENT_EVIDENCE"
+    description: >
+      Use when images do not support a reliable class decision. Triggers
+      include: no facade visible, image too dark, fully occluded, absurd
+      image (not a building), building behind thick vegetation/wall.
+    trigger_conditions:
+      - "Fachada completamente no visible en ninguna imagen"
+      - "Imagen totalmente oscura o sobreexpuesta (sin detalles recuperables)"
+      - "Obstrucción >80% de la fachada por vegetación, muro, o vehículos"
+      - "Imagen no corresponde a una edificación (paisaje, interior, objeto)"
+      - "Ninguna de las clases aplica con confianza >0.30"
+    action: "route_to_review"
+    reviewer_action: "request_more_images_or_mark_unknown"
+
+  - id: "REQUIRES_FIELD_VISIT"
+    description: >
+      Use when the reviewer cannot determine the class from available
+      images and a physical inspection is needed. This is NOT a model
+      prediction — only reviewers set this flag.
+    trigger_conditions:
+      - "Revisor no puede decidir entre dos o más clases con las imágenes disponibles"
+      - "Edificio tipo bodega sin letreros (los expertos indican visita de campo para bodegas)"
+      - "Edificio que requiere verificación de uso interno no visible desde fachada"
+      - "Construcción con uso ambiguo que necesita verificación en terreno"
+    action: "route_to_cadastral_verification_or_physical_inspection"
+    set_by: "reviewer_only"
+
+  - id: "LOW_IMAGE_QUALITY"
+    description: >
+      Flag for images with quality issues that may affect classification
+      accuracy. Unlike UNKNOWN, the model should still ATTEMPT to classify
+      but the prediction carries a quality caveat.
+    trigger_conditions:
+      - "Blur o desenfoque significativo (>50% de la fachada borrosa)"
+      - "Imagen nocturna con poca iluminación artificial"
+      - "Ángulo extremadamente oblicuo (>70° de la perpendicular a fachada)"
+      - "Obstrucción entre 50% y 80% de la fachada"
+      - "Baja resolución (imagen < 640px en el lado más largo)"
+      - "Imagen duplicada como único input (misma vista repetida)"
+    action: "flag_prediction_not_route"
+    note: "La predicción se emite pero se marca con flag de calidad. No bloquea la clasificación."
