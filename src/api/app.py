@@ -48,6 +48,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def _cleanup_stale_sdk_subprocesses() -> int:
+    """Kill any leftover Azure ML SDK subprocesses from previous crashes.
+
+    The SDK's begin_create_or_update / begin_delete use multiprocessing.spawn
+    to run the poller in a separate process. If the parent process crashes
+    or is killed, the poller subprocesses can survive as zombies, holding
+    file descriptors and eventually hanging the asyncio event loop.
+
+    Returns the number of subprocesses killed.
+    """
+    import os, signal, subprocess
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "multiprocessing.spawn.*spawn_main"],
+            capture_output=True, text=True, timeout=5,
+        )
+        killed = 0
+        for pid_str in result.stdout.strip().split("\n"):
+            if not pid_str:
+                continue
+            try:
+                pid = int(pid_str)
+                if pid == os.getpid():
+                    continue
+                os.kill(pid, signal.SIGTERM)
+                killed += 1
+            except (ProcessLookupError, ValueError):
+                pass
+        if killed:
+            logger.info(f"Cleaned up {killed} stale SDK subprocess(es) from previous run")
+        return killed
+    except Exception as e:
+        logger.debug(f"Subprocess cleanup skipped: {e}")
+        return 0
+
+
 classify_service: ClassifyService = None
 review_service: ReviewService = None
 use_mock: bool = False
@@ -64,6 +100,8 @@ _traffic_deployment_name = os.getenv("DEPLOYMENT_NAME", "")
 async def lifespan(app: FastAPI):
     global classify_service, review_service, use_mock, traffic_pct
     global _traffic_client, _traffic_endpoint_name, _traffic_deployment_name
+
+    _cleanup_stale_sdk_subprocesses()
 
     await init_db()
     logger.info("Database initialized")
@@ -162,6 +200,23 @@ async def health():
 
 @app.post("/classify")
 async def classify(req: ClassifyRequest, session: AsyncSession = Depends(get_db_session)):
+    if not use_mock and classify_service is not None:
+        from src.infrastructure.aml_online import get_online_manager, load_state, OnlineState
+        from src.infrastructure.aml_online import STATE_FILE as _ONLINE_STATE_FILE
+        try:
+            status = get_online_manager().get_status()
+        except Exception:
+            status = load_state()
+        state = status.get("state", "not_found")
+        if state != OnlineState.RUNNING.value:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": "Online deployment is not running. Click 'Start Deployment' on the Classify page and wait 1-2 minutes.",
+                    "state": state,
+                },
+            )
+
     logger.info(f"Classifying building {req.building_id} with {len(req.image_urls)} images")
 
     prediction = await classify_service.classify_building(
@@ -215,6 +270,70 @@ async def set_traffic(req: TrafficRequest):
     _traffic_client.begin_create_or_update(ep).wait(timeout=120)
     traffic_pct = req.traffic
     return {"traffic_pct": traffic_pct, "status": "updated"}
+
+
+@app.get("/admin/online/status")
+async def get_online_status():
+    """Return the current online deployment state for the UI.
+
+    Reads Azure (with state file cache fallback) so the UI gets a fast response
+    on page load. Used by /admin/online/start and /admin/online/stop as a
+    guard against no-op transitions.
+
+    The Azure SDK call is wrapped in asyncio.to_thread so it doesn't block
+    the event loop while waiting for Azure to respond.
+    """
+    from src.infrastructure.aml_online import load_state
+    if not os.getenv("ENDPOINT_NAME"):
+        return await asyncio.to_thread(load_state)
+    return await asyncio.to_thread(_get_online_status_sync)
+
+
+def _get_online_status_sync():
+    from src.infrastructure.aml_online import get_online_manager, load_state
+    try:
+        return get_online_manager().get_status()
+    except Exception as e:
+        logger.warning(f"online status error: {e}")
+        cached = load_state()
+        cached["error"] = str(e)
+        return cached
+
+
+@app.post("/admin/online/start")
+async def start_online_deployment():
+    """Start the online deployment. Fire-and-forget: returns in <100ms with
+    state=creating; the actual provisioning runs on Azure (5-10 min)."""
+    if not os.getenv("ENDPOINT_NAME"):
+        raise HTTPException(status_code=400, detail="ENDPOINT_NAME not configured in .env")
+    return JSONResponse(content=await asyncio.to_thread(_start_online_sync), status_code=202)
+
+
+def _start_online_sync():
+    from src.infrastructure.aml_online import get_online_manager
+    try:
+        return get_online_manager().start()
+    except Exception as e:
+        logger.error(f"start failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start: {e}")
+
+
+@app.post("/admin/online/stop")
+async def stop_online_deployment():
+    """Stop the online deployment (delete). Fire-and-forget: returns in <100ms
+    with state=deleting; the actual teardown runs on Azure (~30 sec)."""
+    if not os.getenv("ENDPOINT_NAME"):
+        raise HTTPException(status_code=400, detail="ENDPOINT_NAME not configured in .env")
+    return JSONResponse(content=await asyncio.to_thread(_stop_online_sync), status_code=202)
+
+
+def _stop_online_sync():
+    from src.infrastructure.aml_online import get_online_manager
+    try:
+        return get_online_manager().stop()
+    except Exception as e:
+        logger.error(f"stop failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop: {e}")
 
 
 # --- Review Endpoints ---
@@ -768,10 +887,14 @@ async def batch_page():
 
 
 NAV_HTML = """
-<nav style="display:flex;gap:0;margin:0 0 12px 0;border-bottom:2px solid #e2e8f0;">
+<nav style="display:flex;align-items:center;gap:0;margin:0 0 12px 0;border-bottom:2px solid #e2e8f0;">
     <a href="/" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Classify</a>
     <a href="/review" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Review</a>
     <a href="/batch" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Batch</a>
+    <div id="onlineNavIndicator" style="margin-left:auto;padding:6px 14px;font-size:13px;font-weight:500;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" onclick="window.location.href='/';" title="Go to Classify to manage deployment">
+        <span id="onlineNavDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;"></span>
+        <span id="onlineNavLabel">Online: ?</span>
+    </div>
 </nav>
 <script>
 (function(){
@@ -784,6 +907,44 @@ NAV_HTML = """
             t.style.marginBottom="-2px";
         }
     });
+
+    var pollMs = 30000;
+    var transitionStates = ['creating','deleting'];
+
+    function setIndicator(state, label) {
+        var dot = document.getElementById('onlineNavDot');
+        var lbl = document.getElementById('onlineNavLabel');
+        if (!dot || !lbl) return;
+        var color = '#94a3b8';
+        if (state === 'running') color = '#16a34a';
+        else if (state === 'creating') color = '#eab308';
+        else if (state === 'deleting') color = '#f97316';
+        else if (state === 'failed') color = '#dc2626';
+        else if (state === 'not_found') color = '#dc2626';
+        dot.style.background = color;
+        lbl.textContent = 'Online: ' + label;
+    }
+
+    async function tick() {
+        try {
+            var r = await fetch('/admin/online/status');
+            var d = await r.json();
+            var state = d.state || 'not_found';
+            var lbl;
+            if (state === 'running') lbl = 'Running';
+            else if (state === 'creating') lbl = 'Creating...';
+            else if (state === 'deleting') lbl = 'Stopping...';
+            else if (state === 'not_found') lbl = 'Not deployed';
+            else if (state === 'failed') lbl = 'Failed';
+            else lbl = state;
+            setIndicator(state, lbl);
+            pollMs = (transitionStates.indexOf(state) >= 0) ? 3000 : 30000;
+        } catch (e) {
+            setIndicator('not_found', '?');
+        }
+        setTimeout(tick, pollMs);
+    }
+    tick();
 })();
 </script>
 """
@@ -825,14 +986,18 @@ CLASSIFY_UI_HTML = """
     <h1>Classify Building</h1>
     <div style="margin-bottom:-8px;"></div>
 
-    <div class="card" style="background:#f8fafc; border-left:4px solid #6366f1;">
-        <h3>Endpoint Traffic</h3>
-        <span id="trafficBadge" style="padding:4px 12px;border-radius:4px;font-weight:bold;">...</span>
-        <span id="trafficNote" style="color:#64748b;margin-left:8px;"></span>
-        <br>
-        <button id="btnStart" onclick="setTraffic(100)" style="background:#059669;margin-top:8px;">Start (100%)</button>
-        <button id="btnStop" onclick="setTraffic(0)" style="background:#dc2626;">Stop (0%)</button>
-        <span id="trafficStatus" style="margin-left:8px;color:#64748b;"></span>
+    <div class="card" id="onlineControlCard" style="background:#f8fafc; border-left:4px solid #6366f1;">
+        <h3 style="margin-top:0;">Online Deployment</h3>
+        <div id="onlineStatusBanner" style="padding:12px 14px;border-radius:6px;margin-bottom:12px;font-size:14px;display:flex;align-items:center;gap:10px;">
+            <span id="onlineStatusDot" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#94a3b8;"></span>
+            <span id="onlineStatusText" style="flex:1;">Checking deployment state...</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button id="onlineStartBtn" onclick="onOnlineStart()" style="background:#059669;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:500;display:none;">▶ Start Deployment</button>
+            <button id="onlineStopBtn" onclick="onOnlineStopAsk()" style="background:#dc2626;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:500;display:none;">⏸ Stop Deployment</button>
+            <button id="onlineRetryBtn" onclick="onOnlineStart()" style="background:#dc2626;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-weight:500;display:none;">🔄 Retry</button>
+            <span id="onlineCostNote" style="font-size:12px;color:#64748b;"></span>
+        </div>
     </div>
 
     <div class="card">
@@ -843,7 +1008,7 @@ CLASSIFY_UI_HTML = """
             <p style="font-size:12px;color:#94a3b8;">JPG or PNG — up to 8 images</p>
         </div>
         <div id="images-preview"></div>
-        <div class="traffic-warning" id="trafficWarning">Start the endpoint first (traffic is at 0%)</div>
+        <div class="traffic-warning" id="trafficWarning">Start the online deployment first (see control panel above)</div>
         <button id="classifyBtn" onclick="classify()" disabled>Classify Building</button>
         <span id="status"></span>
     </div>
@@ -856,6 +1021,8 @@ CLASSIFY_UI_HTML = """
     <script>
         let imageUrls = [];
         let currentTraffic = 0;
+        let onlineState = 'not_found';
+        let onlineStartTime = null;
         const dropzone = document.getElementById('dropzone');
         const preview = document.getElementById('images-preview');
         const classifyBtn = document.getElementById('classifyBtn');
@@ -915,46 +1082,143 @@ CLASSIFY_UI_HTML = """
             updateClassifyBtn();
         }
 
+        // --- Online deployment control ---
+        const transitionStates = ['creating', 'deleting'];
+        function formatElapsed() {
+            if (!onlineStartTime) return '';
+            const s = Math.floor((Date.now() - onlineStartTime) / 1000);
+            const m = Math.floor(s / 60);
+            const sec = s % 60;
+            return m + ':' + String(sec).padStart(2, '0');
+        }
+
+        function renderOnlineState(d) {
+            onlineState = d.state || 'not_found';
+            const banner = document.getElementById('onlineStatusBanner');
+            const dot = document.getElementById('onlineStatusDot');
+            const txt = document.getElementById('onlineStatusText');
+            const startBtn = document.getElementById('onlineStartBtn');
+            const stopBtn = document.getElementById('onlineStopBtn');
+            const retryBtn = document.getElementById('onlineRetryBtn');
+            const costNote = document.getElementById('onlineCostNote');
+
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'none';
+            retryBtn.style.display = 'none';
+
+            if (onlineState === 'not_found') {
+                dot.style.background = '#dc2626';
+                banner.style.background = '#fef2f2';
+                txt.innerHTML = '<strong>🔴 No deployment.</strong> Click below to create one. Takes 5-10 minutes (model download + VM provision).';
+                startBtn.textContent = '▶ Create Deployment';
+                startBtn.style.display = 'inline-block';
+                costNote.textContent = 'Cost: $0 when stopped · ~$3.67/hr when running';
+            } else if (onlineState === 'creating') {
+                dot.style.background = '#eab308';
+                banner.style.background = '#fef9c3';
+                if (!onlineStartTime) onlineStartTime = Date.now();
+                txt.innerHTML = '<strong>🟡 Creating deployment...</strong> Please wait. ⏱ ' + formatElapsed() + ' elapsed';
+                costNote.textContent = 'Usually 5-10 minutes';
+            } else if (onlineState === 'running') {
+                dot.style.background = '#16a34a';
+                banner.style.background = '#dcfce7';
+                onlineStartTime = null;
+                txt.innerHTML = '<strong>🟢 Online deployment running.</strong> Ready to classify.';
+                stopBtn.style.display = 'inline-block';
+                costNote.textContent = 'Cost: ~$3.67/hr while running · $0 when stopped';
+            } else if (onlineState === 'deleting') {
+                dot.style.background = '#f97316';
+                banner.style.background = '#fff7ed';
+                if (!onlineStartTime) onlineStartTime = Date.now();
+                txt.innerHTML = '<strong>🟡 Stopping deployment...</strong> Removing compute. ⏱ ' + formatElapsed() + ' elapsed';
+                costNote.textContent = 'Usually ~30 seconds';
+            } else if (onlineState === 'failed') {
+                dot.style.background = '#dc2626';
+                banner.style.background = '#fef2f2';
+                onlineStartTime = null;
+                const errMsg = d.error ? ' — ' + d.error : '';
+                txt.innerHTML = '<strong>🔴 Deployment failed</strong>' + errMsg;
+                retryBtn.style.display = 'inline-block';
+                costNote.textContent = '';
+            } else {
+                dot.style.background = '#94a3b8';
+                banner.style.background = '#f1f5f9';
+                txt.innerHTML = 'Unknown state: ' + onlineState;
+                costNote.textContent = '';
+            }
+            updateClassifyBtn();
+        }
+
+        async function pollOnlineStatus() {
+            try {
+                const r = await fetch('/admin/online/status');
+                const d = await r.json();
+                renderOnlineState(d);
+            } catch (e) {
+                document.getElementById('onlineStatusText').textContent = 'Error checking deployment state: ' + e.message;
+            }
+            const inTransition = transitionStates.indexOf(onlineState) >= 0;
+            setTimeout(pollOnlineStatus, inTransition ? 3000 : 30000);
+            if (inTransition) {
+                if (!onlineStartTime) onlineStartTime = Date.now();
+                const txt = document.getElementById('onlineStatusText');
+                const elapsed = formatElapsed();
+                if (onlineState === 'creating') {
+                    txt.innerHTML = '<strong>🟡 Creating deployment...</strong> Please wait. ⏱ ' + elapsed + ' elapsed';
+                } else if (onlineState === 'deleting') {
+                    txt.innerHTML = '<strong>🟡 Stopping deployment...</strong> Removing compute. ⏱ ' + elapsed + ' elapsed';
+                }
+            }
+        }
+
+        async function onOnlineStart() {
+            const startBtn = document.getElementById('onlineStartBtn');
+            const retryBtn = document.getElementById('onlineRetryBtn');
+            startBtn.disabled = true;
+            retryBtn.disabled = true;
+            onlineStartTime = Date.now();
+            try {
+                const r = await fetch('/admin/online/start', { method: 'POST' });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({detail: 'Unknown error'}));
+                    alert('Failed to start: ' + (err.detail || r.statusText));
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+            startBtn.disabled = false;
+            retryBtn.disabled = false;
+            pollOnlineStatus();
+        }
+
+        function onOnlineStopAsk() {
+            if (confirm('Stop the online deployment?\\n\\nThe deployment will be DELETED (Azure ML does not allow instance_count=0). The next Start will recreate it from scratch (5-10 minutes).\\n\\nCost: $0/hr while stopped.')) {
+                onOnlineStop();
+            }
+        }
+
+        async function onOnlineStop() {
+            const stopBtn = document.getElementById('onlineStopBtn');
+            stopBtn.disabled = true;
+            onlineStartTime = Date.now();
+            try {
+                const r = await fetch('/admin/online/stop', { method: 'POST' });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({detail: 'Unknown error'}));
+                    alert('Failed to stop: ' + (err.detail || r.statusText));
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+            stopBtn.disabled = false;
+            pollOnlineStatus();
+        }
+
         // --- Traffic guard ---
         function updateClassifyBtn() {
-            const canClassify = currentTraffic > 0 && imageUrls.length > 0;
+            const canClassify = onlineState === 'running' && imageUrls.length > 0;
             classifyBtn.disabled = !canClassify;
-            trafficWarning.style.display = (currentTraffic === 0 && imageUrls.length > 0) ? 'block' : 'none';
-        }
-
-        async function fetchTraffic() {
-            try {
-                const r = await fetch('/admin/traffic');
-                const d = await r.json();
-                currentTraffic = d.traffic_pct;
-                const badge = document.getElementById('trafficBadge');
-                const note = document.getElementById('trafficNote');
-                badge.textContent = d.traffic_pct + '%';
-                badge.style.background = d.traffic_pct > 0 ? '#dcfce7' : '#fef2f2';
-                badge.style.color = d.traffic_pct > 0 ? '#166534' : '#991b1b';
-                note.textContent = d.available ? '' : '(Azure client unavailable — mock mode?)';
-                updateClassifyBtn();
-            } catch(e) {}
-        }
-
-        async function setTraffic(pct) {
-            document.getElementById('trafficStatus').textContent = 'Updating...';
-            try {
-                const r = await fetch('/admin/traffic', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({traffic: pct}),
-                });
-                const d = await r.json();
-                currentTraffic = d.traffic_pct;
-                document.getElementById('trafficStatus').textContent = 'Done: ' + d.traffic_pct + '%';
-                updateClassifyBtn();
-                document.getElementById('trafficBadge').textContent = d.traffic_pct + '%';
-                document.getElementById('trafficBadge').style.background = d.traffic_pct > 0 ? '#dcfce7' : '#fef2f2';
-                document.getElementById('trafficBadge').style.color = d.traffic_pct > 0 ? '#166534' : '#991b1b';
-            } catch(e) {
-                document.getElementById('trafficStatus').textContent = 'Error: ' + e.message;
-            }
+            trafficWarning.style.display = (onlineState !== 'running' && imageUrls.length > 0) ? 'block' : 'none';
         }
 
         // --- Classify ---
@@ -974,6 +1238,11 @@ CLASSIFY_UI_HTML = """
                     body: JSON.stringify({building_id: buildingId, image_urls: imageUrls}),
                 });
                 const data = await resp.json();
+                if (resp.status === 503 && data.detail && data.detail.message) {
+                    document.getElementById('status').textContent = '⚠ ' + data.detail.message;
+                    pollOnlineStatus();
+                    return;
+                }
                 renderResult(data);
                 document.getElementById('status').textContent = 'Done!';
             } catch (err) {
@@ -1009,7 +1278,7 @@ CLASSIFY_UI_HTML = """
             document.getElementById('resultContent').innerHTML = html;
         }
 
-        fetchTraffic();
+        pollOnlineStatus();
     </script>
 </body>
 </html>
