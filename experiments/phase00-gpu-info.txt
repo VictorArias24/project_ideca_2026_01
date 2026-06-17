@@ -1,0 +1,29 @@
+Wed Jun  3 22:59:55 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 570.207                Driver Version: 570.207        CUDA Version: 12.8     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4070 ...    On  |   00000000:08:00.0  On |                  N/A |
+|  0%   50C    P0             16W /  285W |     886MiB /  16376MiB |      6%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            2915      G   /usr/lib/xorg/Xorg                      394MiB |
+|    0   N/A  N/A            3093      G   /usr/bin/gnome-shell                     67MiB |
+|    0   N/A  N/A            4186      G   ...docker-desktop/Docker Desktop         48MiB |
+|    0   N/A  N/A            6338      G   ...rack-uuid=3190708988185955192        116MiB |
+|    0   N/A  N/A           11462      G   gnome-control-center                      3MiB |
+|    0   N/A  N/A           19271      G   ...share/Steam/ubuntu12_32/steam          7MiB |
+|    0   N/A  N/A           19467      G   ./steamwebhelper                         14MiB |
+|    0   N/A  N/A           19500    C+G   ...am/ubuntu12_64/steamwebhelper          8MiB |
+|    0   N/A  N/A           60241      G   /proc/self/exe                          129MiB |
+|    0   N/A  N/A           67910      G   /usr/share/cursor/cursor                 16MiB |
++-----------------------------------------------------------------------------------------+

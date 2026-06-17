@@ -1,0 +1,24 @@
+# Phase 02 Results: Foundry VLM Endpoint
+# Generated: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Model: Qwen2.5-VL-32B-Instruct
+# Instance: Standard_NC24ads_A100_v4
+# Region: eastus
+
+cold_start_seconds: 1
+cold_start_timestamp: 2026-06-10T22:00:52Z
+
+single_image_test:
+  latency_seconds: 7.0
+  tokens: 4052
+  json_parsed: True
+  timestamp: 2026-06-10T22:03:58Z
+
+multi_image_test:
+  image_count: 4
+  latency_seconds: 8.4
+  latency_per_image: 2.1
+  tokens: 4103
+  json_parsed: True
+  timestamp: 2026-06-10T22:05:13Z
+  cost_per_call_usd: 0.0084
+  cost_per_1000_buildings_usd: 8.41

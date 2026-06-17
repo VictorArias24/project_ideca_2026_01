@@ -1,0 +1,23 @@
+# Phase 03 Prompt Experiment Results
+# Endpoint: bogota-online-acb09549
+# Model: Qwen2.5-VL-32B-Instruct
+
+cold_start_seconds: 1
+
+
+prompt_p001_test:
+  building_id: bogota-001
+  images: 4
+  parse_success: True
+  attempts: 1
+  latency_seconds: 17.0
+  primary_class: RURAL_1
+  confidence: 0.85
+  requiere_revision: False
+  visible_features_count: 8
+  evidence_count: 4
+  timestamp: 2026-06-11T04:02:45Z
+
+  parse_success_rate: 1/1 (100%)
+  threshold_met: yes (>80%)
+  p002_needed: no
