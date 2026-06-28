@@ -20,6 +20,7 @@ the last-known state on page load without a blocking Azure API call.
 import json
 import logging
 import os
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Optional
@@ -123,6 +124,13 @@ class OnlineDeploymentManager:
 
         state = self._map_state(provisioning)
 
+        # Auto-route traffic to 100% when deployment becomes Succeeded.
+        # Azure ML does NOT auto-route traffic on create — it must be set
+        # explicitly. This fires on the first poll that sees Succeeded with
+        # traffic < 100, so the user never has to manually route traffic.
+        if state == OnlineState.RUNNING and traffic_pct < 100:
+            traffic_pct = self._ensure_traffic_100()
+
         return self._save_and_return({
             "state": state.value,
             "instances": instances,
@@ -141,6 +149,33 @@ class OnlineDeploymentManager:
         if provisioning == "Succeeded":
             return OnlineState.RUNNING
         return OnlineState.FAILED
+
+    def _ensure_traffic_100(self) -> int:
+        """Set endpoint traffic to 100% for this deployment.
+
+        Azure ML does NOT auto-route traffic when a deployment is created —
+        it must be set explicitly. This is called from get_status() the
+        moment the deployment transitions to Succeeded with traffic < 100.
+
+        Fire-and-forget: returns immediately after Azure accepts the endpoint
+        update. The traffic change propagates within seconds.
+
+        Returns the traffic percentage (100 if just set, existing if already
+        at 100, 0 on error).
+        """
+        try:
+            endpoint = self.client.online_endpoints.get(self.endpoint_name)
+            current = int(endpoint.traffic.get(self.deployment_name, 0))
+            if current >= 100:
+                return current
+            endpoint.traffic = {self.deployment_name: 100}
+            poller = self.client.online_endpoints.begin_create_or_update(endpoint)
+            logger.info(f"Traffic set to 100% for {self.deployment_name}")
+            del poller
+            return 100
+        except Exception as e:
+            logger.warning(f"Could not set traffic to 100%: {e}")
+            return 0
 
     def start(self) -> dict:
         """Create the deployment (or no-op if already running).
@@ -230,7 +265,37 @@ class OnlineDeploymentManager:
         Fire-and-forget: returns immediately after Azure accepts the operation.
         The state is set to 'deleting'. Status updates come from get_status()
         polling Azure directly. We never call poller.wait() (see _create_deployment).
+
+        Azure ML rejects begin_delete() if the deployment has traffic > 0,
+        so we MUST clear traffic on the endpoint before calling delete.
         """
+        # Step 1: Clear traffic BEFORE delete (Azure rejects delete with traffic > 0)
+        try:
+            endpoint = self.client.online_endpoints.get(self.endpoint_name)
+            current_traffic = int(endpoint.traffic.get(self.deployment_name, 0))
+            if current_traffic > 0:
+                endpoint.traffic = {}
+                poller_ep = self.client.online_endpoints.begin_create_or_update(endpoint)
+                logger.info(f"Traffic clear initiated for {self.deployment_name}")
+                del poller_ep
+
+                # Wait for Azure to process the traffic change (poll, no poller.wait)
+                # Endpoint updates typically take 2-5 sec; timeout after 30 sec.
+                for i in range(15):
+                    time.sleep(2)
+                    try:
+                        ep_check = self.client.online_endpoints.get(self.endpoint_name)
+                        if int(ep_check.traffic.get(self.deployment_name, 0)) == 0:
+                            logger.info(f"Traffic confirmed at 0% (after {(i+1)*2}s)")
+                            break
+                    except Exception:
+                        pass
+                else:
+                    logger.warning("Traffic did not reach 0% within 30s — trying delete anyway")
+        except Exception as e:
+            logger.warning(f"Could not clear traffic before delete: {e}")
+
+        # Step 2: Delete the deployment (traffic is now 0, Azure accepts)
         try:
             poller = self.client.online_deployments.begin_delete(
                 endpoint_name=self.endpoint_name,
@@ -257,15 +322,6 @@ class OnlineDeploymentManager:
                 "last_updated": _now(),
                 "error": str(e),
             })
-
-        try:
-            endpoint = self.client.online_endpoints.get(self.endpoint_name)
-            if self.deployment_name in endpoint.traffic:
-                endpoint.traffic.pop(self.deployment_name, None)
-                poller2 = self.client.online_endpoints.begin_create_or_update(endpoint)
-                del poller2
-        except Exception as e:
-            logger.warning(f"Could not clean endpoint traffic: {e}")
 
         return self._save_and_return({
             "state": OnlineState.DELETING.value,
