@@ -20,6 +20,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import uvicorn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -186,11 +187,60 @@ class TrafficRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(content=CLASSIFY_UI_HTML)
+    return HTMLResponse(content=_render_classify_ui())
+
+
+def _render_classify_ui() -> str:
+    """Render the Classify page with current server state injected.
+
+    Uses .replace() (not .format()) because the HTML contains literal
+    { and } in JavaScript that would confuse str.format().
+    """
+    return (
+        CLASSIFY_UI_HTML
+        .replace("{mock_badge}", _mock_badge())
+        .replace("{use_mock_banner}", _use_mock_banner())
+    )
+
+
+def _mock_badge() -> str:
+    """Small ⚠ MOCK badge for the nav bar (all tabs)."""
+    if not use_mock:
+        return ''
+    return (
+        '<span style="background:#f59e0b;color:white;padding:2px 8px;'
+        'border-radius:4px;font-size:11px;font-weight:bold;margin-left:8px;">'
+        '⚠ MOCK</span>'
+    )
+
+
+def _use_mock_banner() -> str:
+    """Yellow warning banner at the top of the Classify page."""
+    if not use_mock:
+        return ''
+    return (
+        '<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;'
+        'padding:12px 16px;margin:0 0 16px 0;color:#92400e;font-size:14px;font-weight:500;">'
+        '⚠️ <strong>MOCK MODE</strong> — Results are simulated by <code>MockVlmAdapter</code> for UI testing. '
+        'Every classify call returns the same hardcoded response. '
+        'The real VLM will be used once the online deployment is running.'
+        '</div>'
+    )
+
+
+def _render_nav() -> str:
+    """Render the nav bar with the {mock_badge} placeholder filled in.
+
+    Uses .replace() (not .format()) because the HTML contains literal
+    { and } in JavaScript that would confuse str.format().
+    """
+    return NAV_HTML.replace("{mock_badge}", _mock_badge())
 
 
 @app.get("/health")
 async def health():
+    if use_mock:
+        _try_promote_to_real_vlm()
     return {
         "status": "healthy",
         "mock_mode": use_mock,
@@ -198,8 +248,39 @@ async def health():
     }
 
 
+def _try_promote_to_real_vlm() -> bool:
+    """Self-heal: if currently in mock mode, try to swap to the real VLM.
+
+    Called from /health and /classify when use_mock is True. If the Foundry
+    adapter's health check passes, replaces classify_service.vlm_client with
+    the real adapter and flips use_mock to False.
+
+    This lets the server recover without a restart after the user creates
+    the deployment via the Start button (5-10 min Azure provisioning).
+
+    Returns True if promoted to real VLM, False if still in mock mode.
+    """
+    global use_mock
+    if not use_mock or classify_service is None:
+        return False
+    try:
+        from src.adapters.foundry_adapter import FoundryVlmAdapter
+        candidate = FoundryVlmAdapter(prompt_version="p004")
+        if candidate.health_check():
+            classify_service.vlm_client = candidate
+            use_mock = False
+            logger.info("Self-heal: promoted to Foundry VLM adapter (mock mode off)")
+            return True
+    except Exception as e:
+        logger.debug(f"Self-heal not yet ready: {e}")
+    return False
+
+
 @app.post("/classify")
 async def classify(req: ClassifyRequest, session: AsyncSession = Depends(get_db_session)):
+    if use_mock:
+        _try_promote_to_real_vlm()
+
     if not use_mock and classify_service is not None:
         from src.infrastructure.aml_online import get_online_manager, load_state, OnlineState
         from src.infrastructure.aml_online import STATE_FILE as _ONLINE_STATE_FILE
@@ -395,13 +476,12 @@ async def review_stats(session: AsyncSession = Depends(get_db_session)):
 @app.get("/review", response_class=HTMLResponse)
 async def review_page():
     """Serve the Review workspace UI."""
-    return HTMLResponse(content=REVIEW_UI_HTML)
+    return HTMLResponse(content=REVIEW_UI_HTML.replace("{mock_badge}", _mock_badge()))
+
+
 
 
 # --- Batch Job Endpoints ---
-
-
-
 @app.post("/batch/upload")
 async def upload_batch_dataset(file: UploadFile = File(...)):
     """Upload a ZIP file of building images and register as Azure ML Data Asset.
@@ -877,7 +957,7 @@ async def export_job(
 async def batch_page():
     """Serve the Batch Processing UI."""
     return HTMLResponse(
-        content=BATCH_UI_HTML,
+        content=BATCH_UI_HTML.replace("{mock_badge}", _mock_badge()),
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
@@ -891,6 +971,7 @@ NAV_HTML = """
     <a href="/" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Classify</a>
     <a href="/review" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Review</a>
     <a href="/batch" style="padding:8px 20px;text-decoration:none;color:#475569;font-weight:500;border-radius:6px 6px 0 0;" class="nav-tab">Batch</a>
+    {mock_badge}
     <div id="onlineNavIndicator" style="margin-left:auto;padding:6px 14px;font-size:13px;font-weight:500;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" onclick="window.location.href='/';" title="Go to Classify to manage deployment">
         <span id="onlineNavDot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8;"></span>
         <span id="onlineNavLabel">Online: ?</span>
@@ -982,7 +1063,8 @@ CLASSIFY_UI_HTML = """
     </style>
 </head>
 <body>
-    """ + NAV_HTML + """
+    """ + _render_nav() + """
+    {use_mock_banner}
     <h1>Classify Building</h1>
     <div style="margin-bottom:-8px;"></div>
 
@@ -1275,6 +1357,11 @@ CLASSIFY_UI_HTML = """
             html += `<p><strong>All classes:</strong> ${clases.map(c => `${c.label} (${(c.confidence*100).toFixed(0)}%)`).join(', ')}</p>`;
             html += `<p><strong>Visible features:</strong> ${(classification.caracteristicas_visibles || []).join(', ')}</p>`;
             html += `<p><small>Model: ${data.model_id} | Latency: ${data.latency_ms?.toFixed(0) || '?'}ms</small></p>`;
+            if (data.model_id && data.model_id.startsWith && data.model_id.startsWith('mock')) {
+                html += '<p style="background:#fef3c7;padding:8px;border-radius:4px;margin-top:8px;font-size:12px;color:#92400e;">'
+                      + '⚠️ <strong>Mock result</strong> — simulated, not a real VLM prediction.'
+                      + '</p>';
+            }
             document.getElementById('resultContent').innerHTML = html;
         }
 
@@ -1918,5 +2005,4 @@ BATCH_UI_HTML = """
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("src.api.app:app", host="0.0.0.0", port=7860, reload=True)
