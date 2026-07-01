@@ -26,11 +26,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.persistence.database import init_db, get_db_session
 from src.persistence.repository import PredictionRepository
@@ -166,6 +167,30 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+class AdminKeyMiddleware(BaseHTTPMiddleware):
+    """Require ADMIN_API_KEY for /admin/* endpoints when configured.
+
+    If ADMIN_API_KEY is not set, the middleware is transparent.
+    This is a lightweight guard for the deployment-control endpoints;
+    it does not replace full authentication (deferred to Phase 10).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        admin_key = os.getenv("ADMIN_API_KEY", "")
+        if admin_key and request.url.path.startswith("/admin"):
+            provided = request.headers.get("X-Admin-Key") or request.query_params.get("admin_key")
+            if provided != admin_key:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing admin key"},
+                )
+        return await call_next(request)
+
+
+app.add_middleware(AdminKeyMiddleware)
+
 
 TEST_IMAGES_DIR = Path(__file__).resolve().parents[2] / "experiments" / "test_images"
 if TEST_IMAGES_DIR.exists():
