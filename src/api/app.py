@@ -212,6 +212,8 @@ class TrafficRequest(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
+    if use_mock:
+        _try_promote_to_real_vlm()
     return HTMLResponse(content=_render_classify_ui())
 
 
@@ -232,6 +234,8 @@ def _mock_badge() -> str:
     """Small ⚠ MOCK badge for the nav bar (all tabs)."""
     if not use_mock:
         return ''
+    # TODO(Cambio 3): wrap in <span id="mockBadge"> so the frontend JS can
+    #   hide/show it dynamically based on d.mock_mode from /admin/online/status.
     return (
         '<span style="background:#f59e0b;color:white;padding:2px 8px;'
         'border-radius:4px;font-size:11px;font-weight:bold;margin-left:8px;">'
@@ -243,6 +247,11 @@ def _use_mock_banner() -> str:
     """Yellow warning banner at the top of the Classify page."""
     if not use_mock:
         return ''
+    # TODO(Cambio 3): wrap in <div id="mockBanner"> so the frontend JS can
+    #   hide it dynamically. Add logic in pollOnlineStatus()/renderOnlineState()
+    #   to read d.mock_mode from /admin/online/status and toggle visibility,
+    #   so the banner disappears without a full page refresh once the
+    #   deployment is running and the VLM is promoted.
     return (
         '<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:6px;'
         'padding:12px 16px;margin:0 0 16px 0;color:#92400e;font-size:14px;font-weight:500;">'
@@ -398,11 +407,19 @@ async def get_online_status():
 def _get_online_status_sync():
     from src.infrastructure.aml_online import get_online_manager, load_state
     try:
-        return get_online_manager().get_status()
+        status = get_online_manager().get_status()
+        # TODO(Cambio 1): when status["state"] == "running" and use_mock is True,
+        #   call _try_promote_to_real_vlm() here so the existing poll loop
+        #   (every 3s during transitions, 30s stable) auto-promotes to the
+        #   real VLM without requiring a page refresh or /classify call.
+        # TODO(Cambio 2): add "mock_mode": use_mock to the returned dict so the
+        #   frontend can read it from the status poll.
+        return status
     except Exception as e:
         logger.warning(f"online status error: {e}")
         cached = load_state()
         cached["error"] = str(e)
+        # TODO(Cambio 2): add "mock_mode": use_mock to cached response.
         return cached
 
 
