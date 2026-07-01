@@ -1,5 +1,8 @@
 # Environment
 .env
+.env.*
+!/.env.example
+!/infra/.env.deploy.example
 
 # Python
 __pycache__/
@@ -42,3 +45,9 @@ Thumbs.db
 *.csv
 *.png
 *.zip
+
+# Local Docker test data
+docker_data/
+
+# Deployment secrets
+infra/.env.deploy
