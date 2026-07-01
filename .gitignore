@@ -45,3 +45,9 @@ Thumbs.db
 *.csv
 *.png
 *.zip
+
+# Local Docker test data
+docker_data/
+
+# Deployment secrets
+infra/.env.deploy
